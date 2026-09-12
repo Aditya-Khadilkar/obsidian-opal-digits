@@ -12,12 +12,35 @@ The full specification is in [the PRD](PRD-obsidian-opal-digits-shader_1.md).
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 0 | Scaffold, procedural seven-segment digits, ghost segments, GUI, debug views | done |
+| 0 | Scaffold, procedural seven-segment digits, GUI, debug views | done, matched to the reference |
 | 1 | Diffraction, spectrum, world-fixed lights, full gyro tilt input | not started |
 | 2 | Parallax layers, refraction, absorption, depth softening | not started |
 | 3 | Fresnel, procedural studio reflections, surface waviness, bloom, tone mapping | not started |
 | 4 | Quality tiers, presets, digit animation, auto-drift idle state | not started |
 | 5 | Arbitrary mesh (stretch) | not started |
+
+## The PRD's description of the reference is wrong in four places
+
+Section 2 of the PRD describes the reference photograph in prose. Four of those
+claims do not survive measurement. `reference/MEASUREMENTS.md` has the numbers
+and the method; the implementation follows the measurements.
+
+| PRD section 2 says | The image shows |
+| --- | --- |
+| Cells about 1 : 1.6, taller than wide | 1 : 1.22. Column pitch 37 px, row pitch 45 px |
+| Unlit segments visible as dark teal ghost 8s, "essential to the look" | No ghost glyphs at all. Every cell holds an ordinary digit; 0.2% of cells are empty |
+| Lit segments are outlined strokes, not flat fills | Solid bars, 0.23 of glyph width, joined with no mitre gap |
+| Deeper digits are dimmer **and softer** | Edge sharpness is flat across brightness quartiles, so the variation is diffraction intensity, not depth |
+
+The cell aspect error comes from reading the strongest vertical autocorrelation
+peak, at 31 px, as the row pitch. It is the segment a to segment d self-match
+inside one glyph.
+
+Two further corrections are matters of degree rather than fact. The palette is
+much bluer than "mostly green/teal with scattered magenta, blue, yellow and
+pink" suggests: green through blue is 87% of stroke pixels and yellow is 0.6%.
+And hue tracks brightness, dim cells reading blue and bright cells green, which
+is a useful constraint on the diffraction model in phase 1.
 
 ## Run it
 

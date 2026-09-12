@@ -85,6 +85,15 @@ vec3 linearToSRGB(vec3 c) {
   );
 }
 
+vec3 srgbToLinear(vec3 c) {
+  c = max(c, vec3(0.0));
+  return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+
+float srgbToLinear(float c) {
+  return srgbToLinear(vec3(c)).x;
+}
+
 // Coverage of an SDF, anti-aliased with the screen-space gradient. `soft` adds
 // extra blur, which deeper parallax layers use as a cheap depth-of-field.
 float sdfCoverage(float d, float soft) {

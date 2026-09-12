@@ -18,15 +18,19 @@ uniform int   uViewMode;
 
 uniform float uGridScale;
 uniform float uCellAspect;
-uniform float uGlyphFill;
+uniform float uGlyphFillX;
+uniform float uGlyphFillY;
 uniform float uDensity;
 uniform float uGhostIntensity;
 uniform vec3  uGhostColor;
-uniform float uStrokeWidth;
 uniform float uSegThickness;
 uniform float uSegGap;
 uniform float uSegRounding;
-uniform float uInnerFill;
+uniform float uRimWidth;
+uniform float uRimIntensity;
+uniform float uCellLevelMin;
+uniform float uCellLevelMax;
+uniform float uCellLevelBias;
 uniform float uSkew;
 uniform float uWarpAmount;
 uniform float uWarpScale;
@@ -42,16 +46,16 @@ in vec3 vNormalW;
 out vec4 fragColor;
 
 struct DigitHit {
-  float stroke;  // coverage of the lit outline
-  float fill;    // coverage of the lit glyph interior
-  float ghost;   // coverage of the unlit "ghost 8" outline
-  float lit;     // 1.0 if this cell carries a lit digit
+  float body;   // coverage of the solid lit segments
+  float rim;    // coverage of the brighter band just inside the segment edge
+  float ghost;  // coverage of the unlit "ghost 8", off by default
+  float level;  // per-cell brightness, a stand-in for phase 1 diffraction
+  float lit;    // 1.0 if this cell carries a lit digit
   vec2  cell;
   int   mask;
 };
 
-// Skew plus a low-frequency warp, so the lattice reads as hand-made glass
-// rather than a perfect screen.
+// Skew plus a low-frequency warp. The reference lattice leans about 3 degrees.
 vec2 gridWarp(vec2 p) {
   p.x += p.y * uSkew;
   if (uWarpAmount > 0.0) {
@@ -76,29 +80,44 @@ int cellDigit(vec2 cell, float layer) {
 DigitHit sampleDigits(vec2 uv, float layer, float soft) {
   DigitHit hit;
 
-  // Cells are taller than wide. Dividing y by the aspect makes one grid unit
-  // one cell on both axes; the glyph is then evaluated in an undistorted space.
+  // Cells are taller than wide. Dividing y by the aspect makes one grid unit one
+  // cell on both axes; the glyph is then evaluated in an undistorted space.
   vec2 g = gridWarp(uv) * vec2(uGridScale, uGridScale / uCellAspect);
   hit.cell = floor(g);
   vec2 local = fract(g) - 0.5;
   vec2 q = vec2(local.x, local.y * uCellAspect);
 
-  float halfW = 0.5 * uGlyphFill;
-  float halfH = 0.5 * uCellAspect * uGlyphFill;
+  // Cell is 1 wide by uCellAspect tall in q space. uGlyphFill* is the glyph's
+  // OUTER size as a fraction of the cell, matching how the reference was
+  // measured, while halfW/halfH are segment centre lines. The half-thickness
+  // therefore has to come off both, or neighbouring rows overlap and fuse.
+  float thick = 0.5 * uSegThickness * uGlyphFillX;
+  float halfW = max(0.5 * uGlyphFillX - thick, 1e-3);
+  float halfH = max(0.5 * uCellAspect * uGlyphFillY - thick, 1e-3);
 
   hit.lit = cellHash(hit.cell, layer, 7.0) < uDensity ? 1.0 : 0.0;
   hit.mask = digitMask(cellDigit(hit.cell, layer));
 
   float dLit, dAll;
   digitSdfPair(
-    q, hit.mask, halfW, halfH, uSegThickness, uSegGap, uSegRounding, dLit, dAll
+    q, hit.mask, halfW, halfH, thick, uSegGap * thick, uSegRounding, dLit, dAll
   );
 
-  // Lit segments read as outlined strokes, not flat fills.
-  hit.stroke = hit.lit * sdfCoverage(abs(dLit) - uStrokeWidth, soft);
-  hit.fill   = hit.lit * sdfCoverage(dLit + uStrokeWidth, soft);
-  // Every cell shows its ghost 8, whether or not it carries a lit digit.
-  hit.ghost  = sdfCoverage(abs(dAll) - uStrokeWidth, soft);
+  // Segments are solid bars. The rim is a brighter band inside the edge, which
+  // is what gives the reference strokes their piped look.
+  hit.body = hit.lit * sdfCoverage(dLit, soft);
+  hit.rim = hit.lit * max(
+    sdfCoverage(dLit, soft) - sdfCoverage(dLit + uRimWidth * thick, soft),
+    0.0
+  );
+  hit.ghost = uGhostIntensity > 0.0 ? sdfCoverage(dAll, soft) : 0.0;
+
+  // Placeholder for the diffraction intensity that phase 1 computes. Stated in
+  // display terms because that is how the reference was measured, and biased
+  // because the reference is strongly skewed dim: stroke luminance runs p50
+  // 0.14, p90 0.31, p99 0.52, not a flat spread.
+  float j = pow(cellHash(hit.cell, layer, 13.0), uCellLevelBias);
+  hit.level = srgbToLinear(mix(uCellLevelMin, uCellLevelMax, j));
 
   return hit;
 }
@@ -111,20 +130,23 @@ void main() {
 
   vec3 col;
   if (uViewMode == VIEW_SEGMENT_MASK) {
-    // Ghost segments in dim grey, lit strokes white, lit interiors mid grey.
+    // Occupancy and glyph shape only, with no brightness variation.
     col = vec3(0.0);
     col = max(col, vec3(0.05) * hit.ghost);  // ~0.25 after the sRGB encode
-    col = max(col, vec3(0.22) * hit.fill);   // ~0.51
-    col = max(col, vec3(1.0) * hit.stroke);
+    col = max(col, vec3(0.55) * hit.body);
+    col = max(col, vec3(1.0) * hit.rim);
   } else if (uViewMode == VIEW_LAYER_ID) {
     // Phase 2 gives this real depth; for now every hit is layer 0.
     float id = 0.0;
-    col = mix(vec3(0.05), hash32(vec2(id, 1.0)), max(hit.ghost, hit.stroke));
+    col = mix(vec3(0.05), hash32(vec2(id, 1.0)), max(hit.ghost, hit.body));
   } else {
     col = uMediumColor;
     col = mix(col, uGhostColor, hit.ghost * uGhostIntensity);
-    col += vec3(1.0) * hit.fill * uInnerFill;
-    col = mix(col, vec3(1.0), hit.stroke);
+    // Normalised so the brightest pixel of a stroke is exactly hit.level, which
+    // keeps the cell-level parameters comparable with the measured reference.
+    vec3 stroke = vec3(hit.level)
+      * (1.0 + uRimIntensity * hit.rim) / (1.0 + uRimIntensity);
+    col = mix(col, stroke, hit.body);
   }
 
   // Keeps the varyings and view vector live until the later phases consume them.

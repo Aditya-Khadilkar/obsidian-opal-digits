@@ -17,7 +17,8 @@ export function createGui(params: Params, hooks: GuiHooks): Pane {
   const grid = pane.addFolder({ title: 'Digit grid' });
   grid.addBinding(params, 'gridScale', { label: 'grid scale', min: 2, max: 80, step: 0.5 });
   grid.addBinding(params, 'cellAspect', { label: 'cell aspect', min: 1, max: 2.5, step: 0.01 });
-  grid.addBinding(params, 'glyphFill', { label: 'glyph fill', min: 0.5, max: 1, step: 0.01 });
+  grid.addBinding(params, 'glyphFillX', { label: 'glyph fill X', min: 0.4, max: 1, step: 0.01 });
+  grid.addBinding(params, 'glyphFillY', { label: 'glyph fill Y', min: 0.4, max: 1, step: 0.01 });
   grid.addBinding(params, 'density', { label: 'lit density', min: 0, max: 1, step: 0.01 });
   grid.addBinding(params, 'skew', { label: 'skew', min: -0.2, max: 0.2, step: 0.005 });
   grid.addBinding(params, 'warpAmount', { label: 'warp', min: 0, max: 0.05, step: 0.001 });
@@ -25,11 +26,14 @@ export function createGui(params: Params, hooks: GuiHooks): Pane {
   grid.addBinding(params, 'digitSpeed', { label: 'digit speed', min: 0, max: 4, step: 0.05 });
 
   const glyph = pane.addFolder({ title: 'Segments' });
-  glyph.addBinding(params, 'segThickness', { label: 'thickness', min: 0.01, max: 0.15, step: 0.002 });
-  glyph.addBinding(params, 'strokeWidth', { label: 'stroke width', min: 0.002, max: 0.05, step: 0.001 });
-  glyph.addBinding(params, 'segGap', { label: 'mitre gap', min: 0, max: 0.06, step: 0.002 });
-  glyph.addBinding(params, 'segRounding', { label: 'rounding', min: 0, max: 0.05, step: 0.002 });
-  glyph.addBinding(params, 'innerFill', { label: 'inner fill', min: 0, max: 0.4, step: 0.005 });
+  glyph.addBinding(params, 'segThickness', { label: 'thickness', min: 0.05, max: 0.4, step: 0.005 });
+  glyph.addBinding(params, 'segGap', { label: 'mitre gap', min: 0, max: 1, step: 0.02 });
+  glyph.addBinding(params, 'segRounding', { label: 'rounding', min: 0, max: 1, step: 0.02 });
+  glyph.addBinding(params, 'rimWidth', { label: 'rim width', min: 0, max: 1.5, step: 0.05 });
+  glyph.addBinding(params, 'rimIntensity', { label: 'rim boost', min: 0, max: 2, step: 0.05 });
+  glyph.addBinding(params, 'cellLevelMin', { label: 'cell level min', min: 0, max: 1, step: 0.01 });
+  glyph.addBinding(params, 'cellLevelMax', { label: 'cell level max', min: 0, max: 1, step: 0.01 });
+  glyph.addBinding(params, 'cellLevelBias', { label: 'cell level bias', min: 0.5, max: 5, step: 0.1 });
   glyph.addBinding(params, 'ghostIntensity', { label: 'ghost', min: 0, max: 0.5, step: 0.005 });
   glyph.addBinding(params, 'ghostColor', { label: 'ghost colour' });
   glyph.addBinding(params, 'mediumColor', { label: 'medium' });

@@ -18,18 +18,22 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
         uTilt: { value: new THREE.Vector2() },
         uViewMode: { value: 0 },
 
-        uGridScale: { value: 22 },
-        uCellAspect: { value: 1.6 },
-        uGlyphFill: { value: 0.88 },
-        uDensity: { value: 0.35 },
-        uGhostIntensity: { value: 0.06 },
-        uGhostColor: { value: new THREE.Color('#0d3d3a') },
-        uStrokeWidth: { value: 0.012 },
-        uSegThickness: { value: 0.05 },
-        uSegGap: { value: 0.012 },
-        uSegRounding: { value: 0.02 },
-        uInnerFill: { value: 0.06 },
-        uSkew: { value: 0.03 },
+        uGridScale: { value: 13.5 },
+        uCellAspect: { value: 1.22 },
+        uGlyphFillX: { value: 0.89 },
+        uGlyphFillY: { value: 0.96 },
+        uDensity: { value: 1 },
+        uGhostIntensity: { value: 0 },
+        uGhostColor: { value: new THREE.Color('#12514b') },
+        uSegThickness: { value: 0.22 },
+        uSegGap: { value: 0 },
+        uSegRounding: { value: 0.7 },
+        uRimWidth: { value: 0.55 },
+        uRimIntensity: { value: 0.5 },
+        uCellLevelMin: { value: 0.08 },
+        uCellLevelMax: { value: 0.58 },
+        uCellLevelBias: { value: 2.6 },
+        uSkew: { value: 0.054 },
         uWarpAmount: { value: 0.004 },
         uWarpScale: { value: 0.6 },
         uDigitSpeed: { value: 0 },
@@ -47,15 +51,19 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
 
     u.uGridScale.value = params.gridScale;
     u.uCellAspect.value = params.cellAspect;
-    u.uGlyphFill.value = params.glyphFill;
+    u.uGlyphFillX.value = params.glyphFillX;
+    u.uGlyphFillY.value = params.glyphFillY;
     u.uDensity.value = params.density;
     u.uGhostIntensity.value = params.ghostIntensity;
     (u.uGhostColor.value as THREE.Color).set(params.ghostColor);
-    u.uStrokeWidth.value = params.strokeWidth;
     u.uSegThickness.value = params.segThickness;
     u.uSegGap.value = params.segGap;
     u.uSegRounding.value = params.segRounding;
-    u.uInnerFill.value = params.innerFill;
+    u.uRimWidth.value = params.rimWidth;
+    u.uRimIntensity.value = params.rimIntensity;
+    u.uCellLevelMin.value = params.cellLevelMin;
+    u.uCellLevelMax.value = params.cellLevelMax;
+    u.uCellLevelBias.value = params.cellLevelBias;
     u.uSkew.value = params.skew;
     u.uWarpAmount.value = params.warpAmount;
     u.uWarpScale.value = params.warpScale;

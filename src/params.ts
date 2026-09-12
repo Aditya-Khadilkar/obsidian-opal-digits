@@ -19,18 +19,22 @@ export type TiltSourceName = 'auto' | 'gyro' | 'pointer' | 'auto-drift';
 export interface Params {
   viewMode: ViewModeName;
 
-  // Digit grid
+  // Digit grid. Defaults come from reference/MEASUREMENTS.md.
   gridScale: number;
   cellAspect: number;
-  glyphFill: number;
+  glyphFillX: number;
+  glyphFillY: number;
   density: number;
   ghostIntensity: number;
   ghostColor: string;
-  strokeWidth: number;
   segThickness: number;
   segGap: number;
   segRounding: number;
-  innerFill: number;
+  rimWidth: number;
+  rimIntensity: number;
+  cellLevelMin: number;
+  cellLevelMax: number;
+  cellLevelBias: number;
   skew: number;
   warpAmount: number;
   warpScale: number;
@@ -51,18 +55,22 @@ export interface Params {
 export const DEFAULT_PARAMS: Params = {
   viewMode: 'final',
 
-  gridScale: 22,
-  cellAspect: 1.6,
-  glyphFill: 0.88,
-  density: 0.35,
-  ghostIntensity: 0.16,
+  gridScale: 13.5,   // about 35 cells across the slab, as the reference shows
+  cellAspect: 1.22,  // row pitch 45 px over column pitch 37 px
+  glyphFillX: 0.89,
+  glyphFillY: 0.96,
+  density: 1.0,      // every cell carries a digit
+  ghostIntensity: 0, // the reference has no unlit ghost glyphs
   ghostColor: '#12514b',
-  strokeWidth: 0.012,
-  segThickness: 0.05,
-  segGap: 0.012,
-  segRounding: 0.02,
-  innerFill: 0.06,
-  skew: 0.03,
+  segThickness: 0.22, // fraction of glyph width
+  segGap: 0,          // segments join continuously
+  segRounding: 0.7,   // fraction of segment half-thickness; 1 = capsule ends
+  rimWidth: 0.55,
+  rimIntensity: 0.5,
+  cellLevelMin: 0.08, // per-cell brightness in display terms, fitted to the
+  cellLevelMax: 0.58, // reference's stroke-luminance distribution
+  cellLevelBias: 2.6,
+  skew: 0.054,
   warpAmount: 0.004,
   warpScale: 0.6,
   digitSpeed: 0,

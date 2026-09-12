@@ -100,3 +100,44 @@ Hue tracks brightness, which is the useful constraint for the diffraction model:
 
 Dim digits are blue, bright digits are green, and warm hues appear only in the
 brightest cells.
+
+## What the colour measurements imply for the model
+
+Mapping the reference's hue bands back through the spectrum fit puts its palette
+in a band roughly 460 to 545 nm wide, centred near 500 nm, with a tail into the
+blue. That is narrow, and it is the single hardest thing to reproduce.
+
+The obstacle is that the spectrum is not evenly distributed in hue. Under the
+Zucconi fit, uniform sampling of wavelength gives:
+
+| Hue band | Wavelengths | Share of 380-780 nm |
+| --- | --- | --- |
+| red and orange | 584-700 nm | 36 % |
+| teal | 490-518 nm | 9 % |
+| cyan | 476-488 nm | 4 % |
+| azure | 462-474 nm | 4 % |
+
+Teal is the reference's largest band at 24.9%, and it occupies a 28 nm window,
+while red occupies 116 nm. A diffraction model that spreads energy evenly across
+wavelength therefore comes out orange no matter how the light and grating
+geometry are arranged. Sweeping pitch, light elevation, grating roughness and
+per-cell angle spread never brought red below about 15% of stroke pixels.
+
+The fix is the blaze: a real grating is ruled with a facet angle that throws
+most of its energy at one design wavelength. Adding that envelope, centred at
+456 nm with a 60 nm width, drops red and yellow to essentially zero and brings
+the whole distribution within about 35 of the reference across the tilt range.
+
+Two consequences worth recording:
+
+- **A long lens matters.** With a wide field of view the view vector swings
+  across the slab, which swings the half-vector and sends the edges into the
+  red. The reference is a macro crop with a near-constant view angle, and 14
+  degrees reproduces that. Tilt, not field of view, supplies the parallax.
+- **Magenta and pink are not reachable in one layer.** Non-spectral purples need
+  red and blue in the same pixel, and one cell under one light emits one
+  wavelength per order. Orders one and two can never both be visible at once,
+  since that needs the path difference to be under 750 nm and over 760 nm
+  simultaneously. Per-cell blaze variation produces scattered warm cells but
+  still no magenta. It should arrive with phase 2, when a red front-layer digit
+  composites over a blue deeper one.

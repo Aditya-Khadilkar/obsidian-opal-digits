@@ -65,7 +65,7 @@ const isMobile = matchMedia('(hover: none) and (pointer: coarse)').matches;
 const maxDpr = isMobile ? 1.5 : 2;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(params.cameraFov, 1, 0.1, 100);
 
 const material = new ObsidianDigitsMaterial();
 const slab = new THREE.Mesh(
@@ -76,7 +76,12 @@ scene.add(slab);
 
 const tiltSource = new TiltSource(renderer.domElement, params);
 const stats = new FrameStats(app);
-const pane = hideGui ? null : createGui(params, { onRecalibrate: () => tiltSource.recalibrate() });
+const pane = hideGui
+  ? null
+  : createGui(params, {
+      onRecalibrate: () => tiltSource.recalibrate(),
+      onCameraChange: () => resize(),
+    });
 if (hideGui) document.body.classList.add('nogui');
 
 function resize(): void {
@@ -91,6 +96,7 @@ function resize(): void {
   renderer.setSize(width, height, false);
 
   camera.aspect = width / height;
+  camera.fov = params.cameraFov;
   // Pull the camera back until the slab covers VIEWPORT_FILL on both axes.
   const halfFov = THREE.MathUtils.degToRad(camera.fov) / 2;
   const distForHeight = SLAB.height / VIEWPORT_FILL / (2 * Math.tan(halfFov));

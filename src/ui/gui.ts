@@ -3,6 +3,7 @@ import { DEFAULT_PARAMS, VIEW_MODES, type Params } from '../params';
 
 interface GuiHooks {
   onRecalibrate: () => void;
+  onCameraChange: () => void;
 }
 
 /** Builds the Tweakpane UI. Folders track the PRD's parameter groups. */
@@ -31,12 +32,41 @@ export function createGui(params: Params, hooks: GuiHooks): Pane {
   glyph.addBinding(params, 'segRounding', { label: 'rounding', min: 0, max: 1, step: 0.02 });
   glyph.addBinding(params, 'rimWidth', { label: 'rim width', min: 0, max: 1.5, step: 0.05 });
   glyph.addBinding(params, 'rimIntensity', { label: 'rim boost', min: 0, max: 2, step: 0.05 });
-  glyph.addBinding(params, 'cellLevelMin', { label: 'cell level min', min: 0, max: 1, step: 0.01 });
-  glyph.addBinding(params, 'cellLevelMax', { label: 'cell level max', min: 0, max: 1, step: 0.01 });
-  glyph.addBinding(params, 'cellLevelBias', { label: 'cell level bias', min: 0.5, max: 5, step: 0.1 });
   glyph.addBinding(params, 'ghostIntensity', { label: 'ghost', min: 0, max: 0.5, step: 0.005 });
   glyph.addBinding(params, 'ghostColor', { label: 'ghost colour' });
   glyph.addBinding(params, 'mediumColor', { label: 'medium' });
+
+  const cam = pane.addFolder({ title: 'Camera' });
+  cam.addBinding(params, 'cameraFov', { label: 'fov deg', min: 8, max: 60, step: 0.5 })
+    .on('change', hooks.onCameraChange);
+
+  const diff = pane.addFolder({ title: 'Diffraction' });
+  diff.addBinding(params, 'pitchMin', { label: 'pitch min nm', min: 300, max: 2500, step: 10 });
+  diff.addBinding(params, 'pitchMax', { label: 'pitch max nm', min: 300, max: 2500, step: 10 });
+  diff.addBinding(params, 'pitchBias', { label: 'pitch bias', min: 0.3, max: 5, step: 0.05 });
+  diff.addBinding(params, 'ior', { label: 'IOR', min: 1, max: 2.4, step: 0.01 });
+  diff.addBinding(params, 'blazeCentre', { label: 'blaze nm', min: 400, max: 700, step: 2 });
+  diff.addBinding(params, 'blazeWidth', { label: 'blaze width nm', min: 10, max: 300, step: 2 });
+  diff.addBinding(params, 'blazeJitter', { label: 'blaze jitter nm', min: 0, max: 400, step: 5 });
+  diff.addBinding(params, 'blazeFloor', { label: 'blaze floor', min: 0, max: 0.6, step: 0.01 });
+  diff.addBinding(params, 'gratingSigma', { label: 'roughness', min: 0.05, max: 2, step: 0.01 });
+  diff.addBinding(params, 'orderWeight1', { label: 'order 1', min: 0, max: 2, step: 0.01 });
+  diff.addBinding(params, 'orderWeight2', { label: 'order 2', min: 0, max: 2, step: 0.01 });
+  diff.addBinding(params, 'orderWeight3', { label: 'order 3', min: 0, max: 2, step: 0.01 });
+  diff.addBinding(params, 'angleBase', { label: 'angle base deg', min: -90, max: 90, step: 1 });
+  diff.addBinding(params, 'angleSpread', { label: 'angle spread', min: 0, max: 1, step: 0.01 });
+  diff.addBinding(params, 'angleNoise', { label: 'angle noise', min: 0, max: 3, step: 0.02 });
+  diff.addBinding(params, 'angleNoiseScale', { label: 'angle noise scale', min: 0.2, max: 30, step: 0.2 });
+  diff.addBinding(params, 'lightIntensity', { label: 'light', min: 0, max: 4, step: 0.02 });
+  diff.addBinding(params, 'lightElevMin', { label: 'light elev min', min: 5, max: 88, step: 1 });
+  diff.addBinding(params, 'lightElevMax', { label: 'light elev max', min: 5, max: 88, step: 1 });
+  diff.addBinding(params, 'fillIntensity', { label: 'ambient fill', min: 0, max: 0.5, step: 0.005 });
+  diff.addBinding(params, 'bodyIntensity', { label: 'opal body', min: 0, max: 0.5, step: 0.005 });
+  diff.addBinding(params, 'bodyNoiseScale', { label: 'body scale', min: 0.1, max: 8, step: 0.1 });
+  diff.addBinding(params, 'bodyLambdaMin', { label: 'body nm min', min: 380, max: 750, step: 5 });
+  diff.addBinding(params, 'bodyLambdaMax', { label: 'body nm max', min: 380, max: 750, step: 5 });
+  diff.addBinding(params, 'saturation', { label: 'saturation', min: 0, max: 1.5, step: 0.01 });
+  diff.addBinding(params, 'exposure', { label: 'exposure', min: 0.05, max: 6, step: 0.05 });
 
   const tilt = pane.addFolder({ title: 'Tilt' });
   tilt.addBinding(params, 'tiltSource', {

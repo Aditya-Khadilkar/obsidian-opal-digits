@@ -3,6 +3,33 @@ import vertexShader from '../shaders/main.vert';
 import fragmentShader from '../shaders/main.frag';
 import { VIEW_MODES, type Params } from '../params';
 
+/** Azimuths of the three virtual softboxes, spread around the slab. */
+const LIGHT_AZIMUTHS_DEG = [60, 190, 310];
+
+/**
+ * Three virtual softbox directions, fixed in world space. The slab turns under
+ * them, which is what sweeps the hue; see the note on uLightDirs in main.frag.
+ *
+ * Their ELEVATIONS have to differ, and by a lot. The wavelength a grating sends
+ * to the eye is proportional to the tangential part of the half-vector, so three
+ * lights at the same elevation all land on the same diffraction order and the
+ * material comes out mono-hued. Spreading them from near-normal to near-grazing
+ * puts one light in the blue while another is in the red, and the sum of the two
+ * is what produces the non-spectral magentas and pinks the reference shows.
+ */
+export function worldLightDirs(elevMinDeg: number, elevMaxDeg: number): THREE.Vector3[] {
+  return LIGHT_AZIMUTHS_DEG.map((azDeg, i) => {
+    const t = LIGHT_AZIMUTHS_DEG.length > 1 ? i / (LIGHT_AZIMUTHS_DEG.length - 1) : 0;
+    const elev = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(elevMaxDeg, elevMinDeg, t));
+    const az = THREE.MathUtils.degToRad(azDeg);
+    return new THREE.Vector3(
+      Math.cos(elev) * Math.cos(az),
+      Math.cos(elev) * Math.sin(az),
+      Math.sin(elev),
+    ).normalize();
+  });
+}
+
 /**
  * The single-pass shader material. Everything the look needs lives in the
  * fragment shader; this class only owns uniform plumbing.
@@ -30,14 +57,37 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
         uSegRounding: { value: 0.7 },
         uRimWidth: { value: 0.55 },
         uRimIntensity: { value: 0.5 },
-        uCellLevelMin: { value: 0.08 },
-        uCellLevelMax: { value: 0.58 },
-        uCellLevelBias: { value: 2.6 },
         uSkew: { value: 0.054 },
         uWarpAmount: { value: 0.004 },
         uWarpScale: { value: 0.6 },
         uDigitSpeed: { value: 0 },
         uMediumColor: { value: new THREE.Color('#050607') },
+
+        uLightDirs: { value: worldLightDirs(40, 44) },
+        uLightIntensities: { value: [1.0, 0.6, 0.45] },
+        uLightIntensity: { value: 1 },
+        uFillIntensity: { value: 0.013 },
+
+        uPitchMin: { value: 817 },
+        uPitchMax: { value: 1323 },
+        uPitchBias: { value: 1 },
+        uGratingSigma: { value: 1.21 },
+        uIor: { value: 1.49 },
+        uBlazeCentre: { value: 456 },
+        uBlazeWidth: { value: 60 },
+        uBlazeJitter: { value: 25 },
+        uBlazeFloor: { value: 0.02 },
+        uOrderWeights: { value: new THREE.Vector3(1, 0.55, 0.28) },
+        uAngleBase: { value: 0 },
+        uAngleSpread: { value: 1 },
+        uAngleNoise: { value: 0.61 },
+        uAngleNoiseScale: { value: 6 },
+        uBodyIntensity: { value: 0.025 },
+        uBodyNoiseScale: { value: 1.4 },
+        uBodyLambdaMin: { value: 440 },
+        uBodyLambdaMax: { value: 560 },
+        uSaturation: { value: 0.68 },
+        uExposure: { value: 1.4 },
       },
     });
   }
@@ -61,13 +111,38 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
     u.uSegRounding.value = params.segRounding;
     u.uRimWidth.value = params.rimWidth;
     u.uRimIntensity.value = params.rimIntensity;
-    u.uCellLevelMin.value = params.cellLevelMin;
-    u.uCellLevelMax.value = params.cellLevelMax;
-    u.uCellLevelBias.value = params.cellLevelBias;
     u.uSkew.value = params.skew;
     u.uWarpAmount.value = params.warpAmount;
     u.uWarpScale.value = params.warpScale;
     u.uDigitSpeed.value = params.digitSpeed;
     (u.uMediumColor.value as THREE.Color).set(params.mediumColor);
+
+    u.uLightIntensity.value = params.lightIntensity;
+    const dirs = u.uLightDirs.value as THREE.Vector3[];
+    const fresh = worldLightDirs(params.lightElevMin, params.lightElevMax);
+    for (let i = 0; i < dirs.length; i++) dirs[i].copy(fresh[i]);
+    u.uFillIntensity.value = params.fillIntensity;
+    u.uPitchMin.value = params.pitchMin;
+    u.uPitchMax.value = Math.max(params.pitchMax, params.pitchMin);
+    u.uPitchBias.value = params.pitchBias;
+    u.uGratingSigma.value = params.gratingSigma;
+    u.uIor.value = params.ior;
+    u.uBlazeCentre.value = params.blazeCentre;
+    u.uBlazeWidth.value = params.blazeWidth;
+    u.uBlazeJitter.value = params.blazeJitter;
+    u.uBlazeFloor.value = params.blazeFloor;
+    (u.uOrderWeights.value as THREE.Vector3).set(
+      params.orderWeight1, params.orderWeight2, params.orderWeight3,
+    );
+    u.uAngleBase.value = THREE.MathUtils.degToRad(params.angleBase);
+    u.uAngleSpread.value = params.angleSpread;
+    u.uAngleNoise.value = params.angleNoise;
+    u.uAngleNoiseScale.value = params.angleNoiseScale;
+    u.uBodyIntensity.value = params.bodyIntensity;
+    u.uBodyNoiseScale.value = params.bodyNoiseScale;
+    u.uBodyLambdaMin.value = params.bodyLambdaMin;
+    u.uBodyLambdaMax.value = params.bodyLambdaMax;
+    u.uSaturation.value = params.saturation;
+    u.uExposure.value = params.exposure;
   }
 }

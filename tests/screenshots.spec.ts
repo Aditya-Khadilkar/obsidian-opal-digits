@@ -20,6 +20,9 @@ const VIEWS: Array<[string, string]> = [
   ['final', 'final'],
   ['segment-mask', 'segment mask'],
   ['layer-id', 'layer id'],
+  ['grating-angle', 'grating angle'],
+  ['diffraction-only', 'diffraction only'],
+  ['cosine-palette', 'cosine-palette comparison'],
 ];
 
 async function open(page: import('@playwright/test').Page, query: string) {
@@ -55,7 +58,7 @@ for (const [file, view] of VIEWS) {
 }
 
 test('digit geometry at extreme zoom stays crisp', async ({ page }) => {
-  await open(page, 'tilt=0,0&set=gridScale:1.2,density:1,ghostIntensity:0.35');
+  await open(page, 'tilt=0,0&set=gridScale:1.2,density:1');
   await page.screenshot({ path: `${OUT}/zoom-glyphs.png` });
 });
 

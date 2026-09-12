@@ -2,6 +2,8 @@ precision highp float;
 
 #include "common.glsl"
 #include "segments.glsl"
+#include "spectrum.glsl"
+#include "diffraction.glsl"
 
 // View modes, kept in sync with VIEW_MODES in src/params.ts.
 #define VIEW_FINAL          0
@@ -11,6 +13,8 @@ precision highp float;
 #define VIEW_DIFFRACTION    4
 #define VIEW_FRESNEL        5
 #define VIEW_COSINE_PALETTE 6
+
+#define LIGHTS 3
 
 uniform float uTime;
 uniform vec2  uTilt;
@@ -28,14 +32,41 @@ uniform float uSegGap;
 uniform float uSegRounding;
 uniform float uRimWidth;
 uniform float uRimIntensity;
-uniform float uCellLevelMin;
-uniform float uCellLevelMax;
-uniform float uCellLevelBias;
 uniform float uSkew;
 uniform float uWarpAmount;
 uniform float uWarpScale;
 uniform float uDigitSpeed;
 uniform vec3  uMediumColor;
+
+// Lights are given in WORLD space and the tangent basis is built from the model
+// matrix, so turning the slab moves it relative to the lights on its own. That
+// is what a real holographic card does, and it removes the need to counter-
+// rotate the light directions on the CPU.
+uniform vec3  uLightDirs[LIGHTS];
+uniform float uLightIntensities[LIGHTS];
+uniform float uLightIntensity;
+uniform float uFillIntensity;
+
+uniform float uPitchMin;
+uniform float uPitchMax;
+uniform float uPitchBias;
+uniform float uGratingSigma;
+uniform float uIor;
+uniform float uBlazeCentre;
+uniform float uBlazeWidth;
+uniform float uBlazeJitter;
+uniform float uBlazeFloor;
+uniform vec3  uOrderWeights;
+uniform float uAngleBase;
+uniform float uAngleSpread;
+uniform float uAngleNoise;
+uniform float uAngleNoiseScale;
+uniform float uBodyIntensity;
+uniform float uBodyNoiseScale;
+uniform float uBodyLambdaMin;
+uniform float uBodyLambdaMax;
+uniform float uSaturation;
+uniform float uExposure;
 
 in vec2 vSurfUV;
 in vec3 vPosW;
@@ -49,7 +80,6 @@ struct DigitHit {
   float body;   // coverage of the solid lit segments
   float rim;    // coverage of the brighter band just inside the segment edge
   float ghost;  // coverage of the unlit "ghost 8", off by default
-  float level;  // per-cell brightness, a stand-in for phase 1 diffraction
   float lit;    // 1.0 if this cell carries a lit digit
   vec2  cell;
   int   mask;
@@ -112,45 +142,98 @@ DigitHit sampleDigits(vec2 uv, float layer, float soft) {
   );
   hit.ghost = uGhostIntensity > 0.0 ? sdfCoverage(dAll, soft) : 0.0;
 
-  // Placeholder for the diffraction intensity that phase 1 computes. Stated in
-  // display terms because that is how the reference was measured, and biased
-  // because the reference is strongly skewed dim: stroke luminance runs p50
-  // 0.14, p90 0.31, p99 0.52, not a flat spread.
-  float j = pow(cellHash(hit.cell, layer, 13.0), uCellLevelBias);
-  hit.level = srgbToLinear(mix(uCellLevelMin, uCellLevelMax, j));
-
   return hit;
 }
 
+// Sum of every virtual light's grating response, plus the opal body term that
+// keeps a digit from going fully black when no order lands in the visible range.
+vec3 digitSpectrum(vec2 uv, vec2 cell, float layer, mat3 tbn, out float angle) {
+  Grating g = gratingAt(
+    uv, cell, layer, uAngleBase, uAngleSpread, uAngleNoise, uAngleNoiseScale,
+    uPitchMin, uPitchMax, uPitchBias, uBlazeCentre, uBlazeJitter
+  );
+  angle = atan(g.tangent.y, g.tangent.x);
+
+  vec3 Vw = normalize(cameraPosition - vPosW);
+  vec3 Vt = normalize(Vw * tbn);
+
+  vec3 sum = vec3(0.0);
+  for (int i = 0; i < LIGHTS; i++) {
+    vec3 Lt = normalize(uLightDirs[i] * tbn);
+    // Soft rather than hard cull, so a light crossing the horizon at the tilt
+    // limits fades out instead of popping.
+    float facing = smoothstep(0.0, 0.25, Lt.z);
+    if (facing <= 0.0) continue;
+    sum += uLightIntensities[i] * facing
+         * diffractionColor(
+           Lt, Vt, g, uGratingSigma, uOrderWeights, uIor,
+           uBlazeWidth, uBlazeFloor);
+  }
+  sum *= uLightIntensity;
+
+  // Broad ambient fill: a weak, angle-independent response so cells are never
+  // entirely unlit. Its wavelength range is narrower than the visible band; a
+  // full 420-680 rainbow here swamps the grating's own hue statistics with warm
+  // cells wherever the diffraction term happens to be weak.
+  sum += uFillIntensity * spectralLinear(
+    mix(uBodyLambdaMin, uBodyLambdaMax, cellHash(cell, layer, 41.0))
+  );
+
+  // Opal body colour, varying slowly across the surface rather than per cell.
+  float t = valueNoise(uv * uBodyNoiseScale + cell * 0.37);
+  sum += uBodyIntensity * spectralLinear(mix(uBodyLambdaMin, uBodyLambdaMax, t));
+
+  return sum;
+}
+
 void main() {
-  vec3 V = normalize(cameraPosition - vPosW);
+  // Columns are the tangent basis, so `v * tbn` projects a world vector into
+  // tangent space.
+  mat3 tbn = mat3(normalize(vTangentW), normalize(vBitangentW), normalize(vNormalW));
 
   // Phase 0: one layer, sampled straight on the surface.
   DigitHit hit = sampleDigits(vSurfUV, 0.0, 0.0);
 
+  float gratingAngle;
+  vec3 spectrum = digitSpectrum(vSurfUV, hit.cell, 0.0, tbn, gratingAngle);
+
   vec3 col;
   if (uViewMode == VIEW_SEGMENT_MASK) {
-    // Occupancy and glyph shape only, with no brightness variation.
     col = vec3(0.0);
     col = max(col, vec3(0.05) * hit.ghost);  // ~0.25 after the sRGB encode
     col = max(col, vec3(0.55) * hit.body);
     col = max(col, vec3(1.0) * hit.rim);
   } else if (uViewMode == VIEW_LAYER_ID) {
-    // Phase 2 gives this real depth; for now every hit is layer 0.
     float id = 0.0;
     col = mix(vec3(0.05), hash32(vec2(id, 1.0)), max(hit.ghost, hit.body));
+  } else if (uViewMode == VIEW_GRATING_ANGLE) {
+    // Angle wraps at PI, so map it onto a full hue circle for legibility.
+    float a = fract(gratingAngle / PI);
+    col = srgbToLinear(cosinePalette(a)) * max(hit.body, 0.15);
+  } else if (uViewMode == VIEW_DIFFRACTION) {
+    col = spectrum * uExposure;
+  } else if (uViewMode == VIEW_COSINE_PALETTE) {
+    // The stylised comparison the PRD asks for: same geometry and the same
+    // per-cell parameter, but a smooth palette instead of a grating.
+    float t = fract(gratingAngle / PI + 0.35 * cellHash(hit.cell, 0.0, 31.0));
+    vec3 stroke = srgbToLinear(cosinePalette(t)) * uExposure * 0.35;
+    col = mix(uMediumColor, stroke, hit.body);
   } else {
+    vec3 stroke = spectrum * uExposure;
+    // The reference sits at a median saturation of 0.42, so the raw spectral
+    // colours need pulling back towards their own luminance.
+    float y = dot(stroke, vec3(0.2126, 0.7152, 0.0722));
+    stroke = mix(vec3(y), stroke, uSaturation);
+    // Normalised so the brightest pixel of a stroke is the stroke colour itself.
+    stroke *= (1.0 + uRimIntensity * hit.rim) / (1.0 + uRimIntensity);
+
     col = uMediumColor;
     col = mix(col, uGhostColor, hit.ghost * uGhostIntensity);
-    // Normalised so the brightest pixel of a stroke is exactly hit.level, which
-    // keeps the cell-level parameters comparable with the measured reference.
-    vec3 stroke = vec3(hit.level)
-      * (1.0 + uRimIntensity * hit.rim) / (1.0 + uRimIntensity);
     col = mix(col, stroke, hit.body);
   }
 
-  // Keeps the varyings and view vector live until the later phases consume them.
-  col += 0.0 * (V + vTangentW + vBitangentW + vNormalW + vec3(uTilt, 0.0));
+  // Keeps the tilt uniform live until the input module consumes it.
+  col += 0.0 * vec3(uTilt, 0.0);
 
   fragColor = vec4(linearToSRGB(col), 1.0);
 }

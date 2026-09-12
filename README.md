@@ -13,7 +13,7 @@ The full specification is in [the PRD](PRD-obsidian-opal-digits-shader_1.md).
 | Phase | Scope | State |
 | --- | --- | --- |
 | 0 | Scaffold, procedural seven-segment digits, GUI, debug views | done, matched to the reference |
-| 1 | Diffraction, spectrum, world-fixed lights, full gyro tilt input | not started |
+| 1 | Diffraction, spectrum, world-fixed lights | colour done; gyro input still to do |
 | 2 | Parallax layers, refraction, absorption, depth softening | not started |
 | 3 | Fresnel, procedural studio reflections, surface waviness, bloom, tone mapping | not started |
 | 4 | Quality tiers, presets, digit animation, auto-drift idle state | not started |
@@ -41,6 +41,28 @@ much bluer than "mostly green/teal with scattered magenta, blue, yellow and
 pink" suggests: green through blue is 87% of stroke pixels and yellow is 0.6%.
 And hue tracks brightness, dim cells reading blue and bright cells green, which
 is a useful constraint on the diffraction model in phase 1.
+
+## Colour
+
+The digits are coloured by a diffraction grating, after Jos Stam's shader in GPU
+Gems 1 chapter 8. Each cell has its own grating direction and line pitch, and a
+low-frequency noise field perturbs the direction across the surface, which is
+what puts a colour gradient inside a single digit rather than flat-shading each
+one. Three virtual softboxes are fixed in **world** space while the tangent basis
+comes from the model matrix, so turning the slab moves it relative to the lights
+by itself and the hue sweeps. No CPU-side counter-rotation is needed.
+
+Two departures from the PRD's section 5.4, both recorded with their reasoning in
+`reference/MEASUREMENTS.md`:
+
+- **A blaze envelope.** Without it the model spreads energy evenly across
+  wavelength, and since red occupies 116 nm of the visible band against teal's
+  28 nm, the material comes out orange under every geometry. A real grating is
+  ruled to favour one design wavelength. Adding that brings the palette to
+  within about 35 of the reference's hue distribution, from about 160.
+- **Refraction on entry.** The digits sit under glass, so the light and view
+  directions are refracted into the medium before the half-vector is formed.
+  Phase 2 reuses the same function to walk the parallax layers.
 
 ## Run it
 

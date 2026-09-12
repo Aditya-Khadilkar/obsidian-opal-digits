@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <title>Obsidian Opal Digits</title>
+    <meta
+      name="description"
+      content="A real-time WebGL material: black volcanic glass with diffractive seven-segment digits at several depths."
+    />
+    <link rel="icon" href="data:," />
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      body {
+        font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: #9aa7a6;
+        -webkit-text-size-adjust: 100%;
+      }
+      #app { position: fixed; inset: 0; touch-action: none; }
+      #app > canvas { display: block; width: 100%; height: 100%; }
+      .stats {
+        position: fixed;
+        left: max(10px, env(safe-area-inset-left));
+        bottom: max(10px, env(safe-area-inset-bottom));
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.45);
+        color: #7fd8c9;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      body.nogui .stats { display: none; }
+      .tp-dfwv { z-index: 10; width: 280px; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

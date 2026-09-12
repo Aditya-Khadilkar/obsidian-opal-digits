@@ -1,0 +1,132 @@
+# Obsidian Opal Digits
+
+A real-time WebGL material: black volcanic glass with seven-segment digits
+embedded at several depths. The digits take their colour from **diffraction**,
+so the hue shifts with viewing angle and several colours appear at once, with
+gradients inside a single digit. Tilt the slab with the mouse, a touch drag or
+the phone gyroscope and the colours sweep while the layers move in parallax.
+
+The full specification is in [the PRD](PRD-obsidian-opal-digits-shader_1.md).
+
+## Status
+
+| Phase | Scope | State |
+| --- | --- | --- |
+| 0 | Scaffold, procedural seven-segment digits, ghost segments, GUI, debug views | done |
+| 1 | Diffraction, spectrum, world-fixed lights, full gyro tilt input | not started |
+| 2 | Parallax layers, refraction, absorption, depth softening | not started |
+| 3 | Fresnel, procedural studio reflections, surface waviness, bloom, tone mapping | not started |
+| 4 | Quality tiers, presets, digit animation, auto-drift idle state | not started |
+| 5 | Arbitrary mesh (stretch) | not started |
+
+## Run it
+
+```bash
+npm install
+npm run dev
+```
+
+Other scripts:
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Dev server on http://localhost:5173 |
+| `npm run dev:https` | Same, over TLS, for on-device testing |
+| `npm run build` | Typecheck, then production build into `dist/` |
+| `npm run typecheck` | Typecheck only |
+| `npm run shots` | Playwright screenshots into `screenshots/phase-N/` |
+| `npm run deploy` | Build, then publish `dist/` to Cloudflare Pages |
+
+## Debug flags
+
+Append these to the URL. They exist so screenshots are deterministic and
+on-device checks take seconds.
+
+| Flag | Effect |
+| --- | --- |
+| `?tilt=x,y` | Pins tilt to a fixed value in −1..1, bypassing all input |
+| `?nogui=1` | Hides the Tweakpane panel and the frame-time overlay |
+| `?set=key:value,key:value` | Overrides any parameter, e.g. `?set=gridScale:6,density:1` |
+
+The GUI also has a **view** dropdown for the debug render modes, and a
+**Settings JSON** folder that copies and pastes the whole parameter set.
+
+## On-device testing over HTTPS
+
+iOS and Android deliver **no** `deviceorientation` events over plain HTTP.
+`http://192.168.x.x` fails silently, so the gyro must be tested over TLS.
+
+```bash
+npm run dev:https
+```
+
+That serves over TLS with a self-signed certificate, printed as a LAN address.
+Safari and Chrome both warn about the certificate; accept it once per device.
+If the warning cannot be bypassed, tunnel instead:
+
+```bash
+cloudflared tunnel --url http://localhost:5173
+```
+
+iOS 13 and later also require `DeviceOrientationEvent.requestPermission()` from
+inside a real user gesture, which is why the page has a tap-to-start button.
+Android Chrome needs no prompt. Neither path can be exercised headlessly;
+Chrome DevTools' sensor override panel simulates orientation on desktop but does
+not go through the iOS permission flow.
+
+## Embedding in an iframe
+
+Sensors are gated twice. The iframe needs the attribute and the parent page
+needs the matching header.
+
+```html
+<iframe
+  src="https://…"
+  allow="accelerometer; gyroscope; magnetometer"
+></iframe>
+```
+
+```
+Permissions-Policy: accelerometer=*, gyroscope=*, magnetometer=*
+```
+
+This project already sends that header, from `public/_headers` in production and
+from `vite.config.ts` in development.
+
+## Deploying to Cloudflare Pages
+
+`wrangler.toml` sets `pages_build_output_dir = "dist"`, so a direct upload is:
+
+```bash
+npx wrangler pages deploy dist
+```
+
+For a Git-connected project, set the build command to `npm run build` and the
+output directory to `dist`. `public/_headers` ships the sensor permissions
+policy and long-lived caching for hashed assets.
+
+## Layout
+
+```
+src/
+  main.ts                      scene, camera, render loop, URL flags
+  params.ts                    every tunable value and its default
+  input/TiltSource.ts          gyro + pointer -> one smoothed tilt vector
+  material/ObsidianDigitsMaterial.ts
+  ui/gui.ts                    Tweakpane panel
+  ui/stats.ts                  frame-time overlay
+  shaders/
+    common.glsl                hash, noise, fbm, sRGB encode, SDF coverage
+    segments.glsl              seven-segment SDF + digit bitmasks
+    main.vert / main.frag
+tests/screenshots.spec.ts      Playwright capture harness
+reference/                     reference imagery, see reference/README.md
+screenshots/phase-N/           captured output per phase
+```
+
+### Colour management
+
+The fragment shader is a raw `ShaderMaterial`, so three.js injects none of its
+output transforms. The shader therefore owns the linear-to-sRGB encode itself,
+and tone mapping will go in the same place in phase 3. Everything upstream of
+that, uniform colours included, is linear light.

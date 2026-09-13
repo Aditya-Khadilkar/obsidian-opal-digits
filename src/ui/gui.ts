@@ -20,7 +20,8 @@ export function createGui(params: Params, hooks: GuiHooks): Pane {
   grid.addBinding(params, 'cellAspect', { label: 'cell aspect', min: 1, max: 2.5, step: 0.01 });
   grid.addBinding(params, 'glyphFillX', { label: 'glyph fill X', min: 0.4, max: 1, step: 0.01 });
   grid.addBinding(params, 'glyphFillY', { label: 'glyph fill Y', min: 0.4, max: 1, step: 0.01 });
-  grid.addBinding(params, 'density', { label: 'lit density', min: 0, max: 1, step: 0.01 });
+  grid.addBinding(params, 'density', { label: 'front density', min: 0, max: 1, step: 0.01 });
+  grid.addBinding(params, 'deepDensity', { label: 'deep density', min: 0, max: 1, step: 0.01 });
   grid.addBinding(params, 'skew', { label: 'skew', min: -0.2, max: 0.2, step: 0.005 });
   grid.addBinding(params, 'warpAmount', { label: 'warp', min: 0, max: 0.05, step: 0.001 });
   grid.addBinding(params, 'warpScale', { label: 'warp scale', min: 0.05, max: 4, step: 0.05 });
@@ -39,6 +40,17 @@ export function createGui(params: Params, hooks: GuiHooks): Pane {
   const cam = pane.addFolder({ title: 'Camera' });
   cam.addBinding(params, 'cameraFov', { label: 'fov deg', min: 8, max: 60, step: 0.5 })
     .on('change', hooks.onCameraChange);
+
+  const depth = pane.addFolder({ title: 'Depth' });
+  depth.addBinding(params, 'layers', { label: 'layers', min: 1, max: 8, step: 1 });
+  depth.addBinding(params, 'layerSpacing', { label: 'spacing', min: 0, max: 0.4, step: 0.005 });
+  depth.addBinding(params, 'layerOffsetCells', { label: 'lattice offset', min: 0, max: 1.5, step: 0.05 });
+  depth.addBinding(params, 'depthSoftness', { label: 'depth blur', min: 0, max: 1, step: 0.01 });
+  depth.addBinding(params, 'deepDim', { label: 'deep dim', min: 0, max: 1, step: 0.01 });
+  depth.addBinding(params, 'absorptionSigma', { label: 'absorption', min: 0, max: 12, step: 0.05 });
+  depth.addBinding(params, 'absorptionTintR', { label: 'absorb R', min: 0, max: 3, step: 0.05 });
+  depth.addBinding(params, 'absorptionTintG', { label: 'absorb G', min: 0, max: 3, step: 0.05 });
+  depth.addBinding(params, 'absorptionTintB', { label: 'absorb B', min: 0, max: 3, step: 0.05 });
 
   const diff = pane.addFolder({ title: 'Diffraction' });
   diff.addBinding(params, 'pitchMin', { label: 'pitch min nm', min: 300, max: 2500, step: 10 });

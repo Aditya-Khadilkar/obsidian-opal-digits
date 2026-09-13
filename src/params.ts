@@ -25,6 +25,7 @@ export interface Params {
   glyphFillX: number;
   glyphFillY: number;
   density: number;
+  deepDensity: number;
   ghostIntensity: number;
   ghostColor: string;
   segThickness: number;
@@ -37,6 +38,17 @@ export interface Params {
   warpScale: number;
   digitSpeed: number;
   mediumColor: string;
+
+  // Parallax layers, see PRD 5.3
+  layers: number;
+  layerSpacing: number;
+  layerOffsetCells: number;
+  depthSoftness: number;
+  absorptionSigma: number;
+  absorptionTintR: number;
+  absorptionTintG: number;
+  absorptionTintB: number;
+  deepDim: number;
 
   // Camera. A long lens keeps the view vector nearly constant across the slab,
   // which is the condition the reference photograph was shot under. A wide one
@@ -91,6 +103,7 @@ export const DEFAULT_PARAMS: Params = {
   glyphFillX: 0.89,
   glyphFillY: 0.96,
   density: 1.0,      // every cell carries a digit
+  deepDensity: 0.5,  // deeper layers are sparse, so the stack stays legible
   ghostIntensity: 0, // the reference has no unlit ghost glyphs
   ghostColor: '#12514b',
   segThickness: 0.22, // fraction of glyph width
@@ -103,6 +116,16 @@ export const DEFAULT_PARAMS: Params = {
   warpScale: 0.6,
   digitSpeed: 0,
   mediumColor: '#050607',
+
+  layers: 4,
+  layerSpacing: 0.18,
+  layerOffsetCells: 0.6,
+  depthSoftness: 0.06, // the reference shows no depth blur, so keep this slight
+  absorptionSigma: 4.5,
+  absorptionTintR: 2.14,
+  absorptionTintG: 1.0,
+  absorptionTintB: 0.83,
+  deepDim: 0.54,
 
   cameraFov: 14,
 

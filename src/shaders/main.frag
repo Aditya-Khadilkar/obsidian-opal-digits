@@ -16,6 +16,13 @@ precision highp float;
 
 #define LIGHTS 3
 
+// Layer count is a compile-time define so the parallax loop unrolls and there
+// are no texture fetches or dynamic bounds in the hot path. The material sets it
+// from the quality tier; changing it recompiles the shader.
+#ifndef LAYERS
+  #define LAYERS 4
+#endif
+
 uniform float uTime;
 uniform vec2  uTilt;
 uniform int   uViewMode;
@@ -25,6 +32,7 @@ uniform float uCellAspect;
 uniform float uGlyphFillX;
 uniform float uGlyphFillY;
 uniform float uDensity;
+uniform float uDeepDensity;
 uniform float uGhostIntensity;
 uniform vec3  uGhostColor;
 uniform float uSegThickness;
@@ -37,6 +45,14 @@ uniform float uWarpAmount;
 uniform float uWarpScale;
 uniform float uDigitSpeed;
 uniform vec3  uMediumColor;
+
+// Parallax layers, see PRD 5.3.
+uniform float uLayerSpacing;
+uniform float uLayerOffsetCells;
+uniform float uDepthSoftness;
+uniform float uAbsorptionSigma;
+uniform vec3  uAbsorptionTint;
+uniform float uDeepDim;
 
 // Lights are given in WORLD space and the tangent basis is built from the model
 // matrix, so turning the slab moves it relative to the lights on its own. That
@@ -107,7 +123,7 @@ int cellDigit(vec2 cell, float layer) {
   return int(n);
 }
 
-DigitHit sampleDigits(vec2 uv, float layer, float soft) {
+DigitHit sampleDigits(vec2 uv, float layer, float soft, float density) {
   DigitHit hit;
 
   // Cells are taller than wide. Dividing y by the aspect makes one grid unit one
@@ -125,7 +141,7 @@ DigitHit sampleDigits(vec2 uv, float layer, float soft) {
   float halfW = max(0.5 * uGlyphFillX - thick, 1e-3);
   float halfH = max(0.5 * uCellAspect * uGlyphFillY - thick, 1e-3);
 
-  hit.lit = cellHash(hit.cell, layer, 7.0) < uDensity ? 1.0 : 0.0;
+  hit.lit = cellHash(hit.cell, layer, 7.0) < density ? 1.0 : 0.0;
   hit.mask = digitMask(cellDigit(hit.cell, layer));
 
   float dLit, dAll;
@@ -143,6 +159,29 @@ DigitHit sampleDigits(vec2 uv, float layer, float soft) {
   hit.ghost = uGhostIntensity > 0.0 ? sdfCoverage(dAll, soft) : 0.0;
 
   return hit;
+}
+
+// Depth of layer k below the surface, in the same object-space units as the
+// surface coordinate. Spacing widens with depth, as in the PRD's example
+// progression, so the near layers stay legible while the far ones separate.
+float layerDepth(int k) {
+  float t = float(k) / float(max(LAYERS - 1, 1));
+  return uLayerSpacing * t * (1.0 + t);
+}
+
+// Each layer's lattice is shifted, or every layer would put its digits in the
+// same cells and the stack would read as one thick layer rather than several.
+vec2 layerOffset(int k) {
+  if (k == 0) return vec2(0.0);
+  vec2 h = hash22(vec2(float(k) * 7.13, 3.77)) - 0.5;
+  return h * uLayerOffsetCells / uGridScale;
+}
+
+// Only the front layer is fully occupied. The reference shows one dense lattice,
+// so the deeper layers are sparse: they supply parallax and the sense of a solid
+// volume without turning the surface into a thicket.
+float layerDensity(int k) {
+  return k == 0 ? uDensity : uDeepDensity;
 }
 
 // Sum of every virtual light's grating response, plus the opal body term that
@@ -186,54 +225,123 @@ vec3 digitSpectrum(vec2 uv, vec2 cell, float layer, mat3 tbn, out float angle) {
   return sum;
 }
 
+/** One layer's contribution: its colour, and how much of the view it covers. */
+struct LayerSample {
+  vec3  colour;
+  float alpha;
+  float angle;   // grating angle, for the debug view
+  float body;    // stroke coverage before the depth dimming
+};
+
+LayerSample sampleLayer(int k, vec2 uv, vec3 viewMedium, mat3 tbn) {
+  LayerSample out_;
+
+  // Walk the refracted view ray down to this layer's depth. The ray travels
+  // against the direction pointing back out to the eye.
+  float h = layerDepth(k);
+  float t = h / max(viewMedium.z, 1e-3);
+  vec2 p = uv - viewMedium.xy * t + layerOffset(k);
+
+  // Edge softness grows with depth, which is depth of field for free. The
+  // reference shows no such blur, so the default is slight; see
+  // reference/MEASUREMENTS.md.
+  float soft = uDepthSoftness * h;
+
+  DigitHit hit = sampleDigits(p, float(k), soft, layerDensity(k));
+  out_.body = hit.body;
+  out_.angle = 0.0;
+  out_.alpha = 0.0;
+  out_.colour = vec3(0.0);
+  if (hit.body <= 0.0) return out_;
+
+  vec3 spectrum = digitSpectrum(p, hit.cell, float(k), tbn, out_.angle);
+
+  // Beer-Lambert along the path in and back out again. The tint is per-channel,
+  // which is what gives the glass its smoky cast rather than a neutral grey.
+  float pathLength = 2.0 * t;
+  vec3 transmission = exp(-uAbsorptionSigma * uAbsorptionTint * pathLength);
+
+  vec3 stroke = spectrum * uExposure * transmission;
+  float y = dot(stroke, vec3(0.2126, 0.7152, 0.0722));
+  stroke = mix(vec3(y), stroke, uSaturation);
+  stroke *= (1.0 + uRimIntensity * hit.rim) / (1.0 + uRimIntensity);
+  if (k > 0) stroke *= uDeepDim;
+
+  out_.colour = stroke;
+  out_.alpha = hit.body;
+  return out_;
+}
+
 void main() {
   // Columns are the tangent basis, so `v * tbn` projects a world vector into
   // tangent space.
   mat3 tbn = mat3(normalize(vTangentW), normalize(vBitangentW), normalize(vNormalW));
+  vec3 Vt = normalize(normalize(cameraPosition - vPosW) * tbn);
+  vec3 viewMedium = intoMedium(Vt, uIor);
 
-  // Phase 0: one layer, sampled straight on the surface.
-  DigitHit hit = sampleDigits(vSurfUV, 0.0, 0.0);
+  // Front to back, so a near digit occludes the ones behind it and the loop can
+  // stop contributing once the view is opaque.
+  vec3 col = vec3(0.0);
+  float acc = 0.0;
+  float frontBody = 0.0;
+  float frontGhost = 0.0;
+  float frontAngle = 0.0;
+  float topLayer = -1.0;
 
-  float gratingAngle;
-  vec3 spectrum = digitSpectrum(vSurfUV, hit.cell, 0.0, tbn, gratingAngle);
+  for (int k = 0; k < LAYERS; k++) {
+    LayerSample s = sampleLayer(k, vSurfUV, viewMedium, tbn);
+    if (k == 0) {
+      frontBody = s.body;
+      frontAngle = s.angle;
+    }
+    if (s.alpha <= 0.0) continue;
+    if (topLayer < 0.0) {
+      topLayer = float(k);
+      if (k > 0) frontAngle = s.angle;
+    }
+    col += (1.0 - acc) * s.alpha * s.colour;
+    acc += (1.0 - acc) * s.alpha;
+  }
 
-  vec3 col;
+  // Ghost glyphs, when enabled, belong to the front layer only.
+  if (uGhostIntensity > 0.0) {
+    DigitHit front = sampleDigits(vSurfUV, 0.0, 0.0, layerDensity(0));
+    frontGhost = front.ghost;
+  }
+
+  vec3 medium = uMediumColor;
+  if (frontGhost > 0.0) medium = mix(medium, uGhostColor, frontGhost * uGhostIntensity);
+  vec3 finalColour = medium * (1.0 - acc) + col;
+
   if (uViewMode == VIEW_SEGMENT_MASK) {
-    col = vec3(0.0);
-    col = max(col, vec3(0.05) * hit.ghost);  // ~0.25 after the sRGB encode
-    col = max(col, vec3(0.55) * hit.body);
-    col = max(col, vec3(1.0) * hit.rim);
+    DigitHit front = sampleDigits(vSurfUV, 0.0, 0.0, layerDensity(0));
+    finalColour = vec3(0.0);
+    finalColour = max(finalColour, vec3(0.05) * front.ghost);
+    finalColour = max(finalColour, vec3(0.55) * front.body);
+    finalColour = max(finalColour, vec3(1.0) * front.rim);
   } else if (uViewMode == VIEW_LAYER_ID) {
-    float id = 0.0;
-    col = mix(vec3(0.05), hash32(vec2(id, 1.0)), max(hit.ghost, hit.body));
+    // Which layer the eye actually lands on, at every pixel.
+    finalColour = topLayer < 0.0
+      ? vec3(0.02)
+      : srgbToLinear(cosinePalette(topLayer / float(LAYERS)));
   } else if (uViewMode == VIEW_GRATING_ANGLE) {
-    // Angle wraps at PI, so map it onto a full hue circle for legibility.
-    float a = fract(gratingAngle / PI);
-    col = srgbToLinear(cosinePalette(a)) * max(hit.body, 0.15);
+    float a = fract(frontAngle / PI);
+    finalColour = srgbToLinear(cosinePalette(a)) * max(acc, 0.15);
   } else if (uViewMode == VIEW_DIFFRACTION) {
-    col = spectrum * uExposure;
+    float angle;
+    finalColour = digitSpectrum(vSurfUV, floor(vSurfUV * uGridScale), 0.0, tbn, angle)
+      * uExposure;
   } else if (uViewMode == VIEW_COSINE_PALETTE) {
     // The stylised comparison the PRD asks for: same geometry and the same
     // per-cell parameter, but a smooth palette instead of a grating.
-    float t = fract(gratingAngle / PI + 0.35 * cellHash(hit.cell, 0.0, 31.0));
+    DigitHit front = sampleDigits(vSurfUV, 0.0, 0.0, layerDensity(0));
+    float t = fract(frontAngle / PI + 0.35 * cellHash(front.cell, 0.0, 31.0));
     vec3 stroke = srgbToLinear(cosinePalette(t)) * uExposure * 0.35;
-    col = mix(uMediumColor, stroke, hit.body);
-  } else {
-    vec3 stroke = spectrum * uExposure;
-    // The reference sits at a median saturation of 0.42, so the raw spectral
-    // colours need pulling back towards their own luminance.
-    float y = dot(stroke, vec3(0.2126, 0.7152, 0.0722));
-    stroke = mix(vec3(y), stroke, uSaturation);
-    // Normalised so the brightest pixel of a stroke is the stroke colour itself.
-    stroke *= (1.0 + uRimIntensity * hit.rim) / (1.0 + uRimIntensity);
-
-    col = uMediumColor;
-    col = mix(col, uGhostColor, hit.ghost * uGhostIntensity);
-    col = mix(col, stroke, hit.body);
+    finalColour = mix(uMediumColor, stroke, front.body);
   }
 
-  // Keeps the tilt uniform live until the input module consumes it.
-  col += 0.0 * vec3(uTilt, 0.0);
+  // Keeps the tilt uniform live until a later phase consumes it.
+  finalColour += 0.0 * vec3(uTilt, 0.0) + 0.0 * frontBody;
 
-  fragColor = vec4(linearToSRGB(col), 1.0);
+  fragColor = vec4(linearToSRGB(finalColour), 1.0);
 }

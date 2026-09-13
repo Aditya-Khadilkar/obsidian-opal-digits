@@ -40,6 +40,7 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
       glslVersion: THREE.GLSL3,
       vertexShader,
       fragmentShader,
+      defines: { LAYERS: 4 },
       uniforms: {
         uTime: { value: 0 },
         uTilt: { value: new THREE.Vector2() },
@@ -50,6 +51,7 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
         uGlyphFillX: { value: 0.89 },
         uGlyphFillY: { value: 0.96 },
         uDensity: { value: 1 },
+        uDeepDensity: { value: 0.5 },
         uGhostIntensity: { value: 0 },
         uGhostColor: { value: new THREE.Color('#12514b') },
         uSegThickness: { value: 0.22 },
@@ -62,6 +64,13 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
         uWarpScale: { value: 0.6 },
         uDigitSpeed: { value: 0 },
         uMediumColor: { value: new THREE.Color('#050607') },
+
+        uLayerSpacing: { value: 0.18 },
+        uLayerOffsetCells: { value: 0.6 },
+        uDepthSoftness: { value: 0.06 },
+        uAbsorptionSigma: { value: 4.5 },
+        uAbsorptionTint: { value: new THREE.Vector3(2.14, 1.0, 0.83) },
+        uDeepDim: { value: 0.54 },
 
         uLightDirs: { value: worldLightDirs(40, 44) },
         uLightIntensities: { value: [1.0, 0.6, 0.45] },
@@ -93,6 +102,17 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
   }
 
   /**
+   * The layer count is a compile-time define, so changing it costs a shader
+   * recompile. Guarded, since this runs every frame.
+   */
+  private setLayerCount(layers: number): void {
+    const n = THREE.MathUtils.clamp(Math.round(layers), 1, 8);
+    if (this.defines.LAYERS === n) return;
+    this.defines.LAYERS = n;
+    this.needsUpdate = true;
+  }
+
+  /**
    * Copies GUI state into uniforms. Called once per frame.
    *
    * `lightRotation` turns the softboxes in world space. It is zero by default,
@@ -119,6 +139,7 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
     u.uGlyphFillX.value = params.glyphFillX;
     u.uGlyphFillY.value = params.glyphFillY;
     u.uDensity.value = params.density;
+    u.uDeepDensity.value = params.deepDensity;
     u.uGhostIntensity.value = params.ghostIntensity;
     (u.uGhostColor.value as THREE.Color).set(params.ghostColor);
     u.uSegThickness.value = params.segThickness;
@@ -131,6 +152,16 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
     u.uWarpScale.value = params.warpScale;
     u.uDigitSpeed.value = params.digitSpeed;
     (u.uMediumColor.value as THREE.Color).set(params.mediumColor);
+
+    this.setLayerCount(params.layers);
+    u.uLayerSpacing.value = params.layerSpacing;
+    u.uLayerOffsetCells.value = params.layerOffsetCells;
+    u.uDepthSoftness.value = params.depthSoftness;
+    u.uAbsorptionSigma.value = params.absorptionSigma;
+    (u.uAbsorptionTint.value as THREE.Vector3).set(
+      params.absorptionTintR, params.absorptionTintG, params.absorptionTintB,
+    );
+    u.uDeepDim.value = params.deepDim;
 
     u.uLightIntensity.value = params.lightIntensity;
     const dirs = u.uLightDirs.value as THREE.Vector3[];

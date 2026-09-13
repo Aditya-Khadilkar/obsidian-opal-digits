@@ -7,7 +7,7 @@ import { createGui } from './ui/gui';
 import { FrameStats } from './ui/stats';
 import { DEFAULT_PARAMS, type Params } from './params';
 
-const SLAB = { width: 2.6, height: 1.9, depth: 0.16 };
+const SLAB = { width: 2.6, height: 1.9, depth: 0.42 };
 const VIEWPORT_FILL = 0.8; // slab covers this fraction of the viewport
 
 const query = new URLSearchParams(location.search);

@@ -14,7 +14,7 @@ The full specification is in [the PRD](PRD-obsidian-opal-digits-shader_1.md).
 | --- | --- | --- |
 | 0 | Scaffold, procedural seven-segment digits, GUI, debug views | done, matched to the reference |
 | 1 | Diffraction, spectrum, world-fixed lights, tilt input | done |
-| 2 | Parallax layers, refraction, absorption, depth softening | not started |
+| 2 | Parallax layers, refraction, absorption, depth softening | done, 4 layers |
 | 3 | Fresnel, procedural studio reflections, surface waviness, bloom, tone mapping | not started |
 | 4 | Quality tiers, presets, digit animation, auto-drift idle state | not started |
 | 5 | Arbitrary mesh (stretch) | not started |
@@ -41,6 +41,34 @@ much bluer than "mostly green/teal with scattered magenta, blue, yellow and
 pink" suggests: green through blue is 87% of stroke pixels and yellow is 0.6%.
 And hue tracks brightness, dim cells reading blue and bright cells green, which
 is a useful constraint on the diffraction model in phase 1.
+
+## Depth
+
+Four layers, faked entirely in the fragment shader: the refracted view ray is
+walked down to each layer's depth, the digit grid is sampled there, and the
+results are composited front to back so a near digit occludes the ones behind
+it. Absorption is Beer-Lambert along the path in and back out, with a
+per-channel tint, which is what gives the glass its smoky cast.
+
+Only the front layer is fully occupied. The reference shows one dense lattice
+and no second offset copy, so the deeper layers are sparse: they supply parallax
+and the sense of a solid volume without turning the surface into a thicket. The
+same absorption tint also reproduces something measured in the reference, that
+dim cells read blue and bright ones green, because red is absorbed hardest with
+depth.
+
+Layer count is a compile-time define so the loop unrolls; changing it in the GUI
+recompiles the shader. Measured frame times at 1280x800 in headless Chromium:
+
+| Layers | Median frame time |
+| --- | --- |
+| 1 | 16.7 ms, at vsync |
+| 4 | 16.8 ms, at vsync |
+| 8 | 31.1 ms |
+
+Depth blur is deliberately slight. The PRD asks for edge softness that grows
+with depth, but the reference's edge sharpness is flat across every brightness
+quartile, so a strong depth blur would move away from it rather than towards it.
 
 ## Colour
 
@@ -200,7 +228,35 @@ reference/                     reference imagery, see reference/README.md
 screenshots/phase-N/           captured output per phase
 ```
 
-### Colour management
+### Depth
+
+Four layers, faked entirely in the fragment shader: the refracted view ray is
+walked down to each layer's depth, the digit grid is sampled there, and the
+results are composited front to back so a near digit occludes the ones behind
+it. Absorption is Beer-Lambert along the path in and back out, with a
+per-channel tint, which is what gives the glass its smoky cast.
+
+Only the front layer is fully occupied. The reference shows one dense lattice
+and no second offset copy, so the deeper layers are sparse: they supply parallax
+and the sense of a solid volume without turning the surface into a thicket. The
+same absorption tint also reproduces something measured in the reference, that
+dim cells read blue and bright ones green, because red is absorbed hardest with
+depth.
+
+Layer count is a compile-time define so the loop unrolls; changing it in the GUI
+recompiles the shader. Measured frame times at 1280x800 in headless Chromium:
+
+| Layers | Median frame time |
+| --- | --- |
+| 1 | 16.7 ms, at vsync |
+| 4 | 16.8 ms, at vsync |
+| 8 | 31.1 ms |
+
+Depth blur is deliberately slight. The PRD asks for edge softness that grows
+with depth, but the reference's edge sharpness is flat across every brightness
+quartile, so a strong depth blur would move away from it rather than towards it.
+
+## Colour management
 
 The fragment shader is a raw `ShaderMaterial`, so three.js injects none of its
 output transforms. The shader therefore owns the linear-to-sRGB encode itself,

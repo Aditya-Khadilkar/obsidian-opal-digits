@@ -45,3 +45,4 @@ export async function pixelDifference(
     [a.toString('base64'), b.toString('base64')] as const,
   );
 }
+

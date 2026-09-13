@@ -74,6 +74,7 @@ export function createGui(params: Params, hooks: GuiHooks): Pane {
     options: { auto: 'auto', gyro: 'gyro', pointer: 'pointer', 'auto-drift': 'auto-drift' },
   });
   tilt.addBinding(params, 'slabRotationDeg', { label: 'slab rot deg', min: 0, max: 45, step: 0.5 });
+  tilt.addBinding(params, 'lightRotationDeg', { label: 'light rot deg', min: 0, max: 45, step: 0.5 });
   tilt.addBinding(params, 'tiltRangeDeg', { label: 'range deg', min: 5, max: 90, step: 1 });
   tilt.addBinding(params, 'springStiffness', { label: 'spring', min: 0.01, max: 1, step: 0.01 });
   tilt.addBinding(params, 'recenterRate', { label: 'recentre', min: 0, max: 0.05, step: 0.001 });

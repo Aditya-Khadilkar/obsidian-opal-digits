@@ -92,8 +92,23 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
     });
   }
 
-  /** Copies GUI state into uniforms. Called once per frame. */
-  sync(params: Params, time: number, tilt: THREE.Vector2): void {
+  /**
+   * Copies GUI state into uniforms. Called once per frame.
+   *
+   * `lightRotation` turns the softboxes in world space. It is zero by default,
+   * because the slab turning under fixed lights already sweeps the hue: the
+   * tangent basis comes from the model matrix, so no CPU-side counter-rotation
+   * is needed. It drives the flashlight mode of PRD 5.1, where the pointer moves
+   * the light and leaves the slab still, and it is how PRD 5.10.4 says to verify
+   * that the sweep comes from the half-vector rather than from parallax: set the
+   * slab rotation to zero, leave this on, and the colours must still move.
+   */
+  sync(
+    params: Params,
+    time: number,
+    tilt: THREE.Vector2,
+    lightRotation?: THREE.Quaternion,
+  ): void {
     const u = this.uniforms;
     u.uTime.value = time;
     u.uTilt.value.copy(tilt);
@@ -120,7 +135,10 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
     u.uLightIntensity.value = params.lightIntensity;
     const dirs = u.uLightDirs.value as THREE.Vector3[];
     const fresh = worldLightDirs(params.lightElevMin, params.lightElevMax);
-    for (let i = 0; i < dirs.length; i++) dirs[i].copy(fresh[i]);
+    for (let i = 0; i < dirs.length; i++) {
+      dirs[i].copy(fresh[i]);
+      if (lightRotation) dirs[i].applyQuaternion(lightRotation);
+    }
     u.uFillIntensity.value = params.fillIntensity;
     u.uPitchMin.value = params.pitchMin;
     u.uPitchMax.value = Math.max(params.pitchMax, params.pitchMin);

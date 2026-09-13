@@ -13,7 +13,7 @@ The full specification is in [the PRD](PRD-obsidian-opal-digits-shader_1.md).
 | Phase | Scope | State |
 | --- | --- | --- |
 | 0 | Scaffold, procedural seven-segment digits, GUI, debug views | done, matched to the reference |
-| 1 | Diffraction, spectrum, world-fixed lights | colour done; gyro input still to do |
+| 1 | Diffraction, spectrum, world-fixed lights, tilt input | done |
 | 2 | Parallax layers, refraction, absorption, depth softening | not started |
 | 3 | Fresnel, procedural studio reflections, surface waviness, bloom, tone mapping | not started |
 | 4 | Quality tiers, presets, digit animation, auto-drift idle state | not started |
@@ -92,9 +92,40 @@ on-device checks take seconds.
 | `?tilt=x,y` | Pins tilt to a fixed value in −1..1, bypassing all input |
 | `?nogui=1` | Hides the Tweakpane panel and the frame-time overlay |
 | `?set=key:value,key:value` | Overrides any parameter, e.g. `?set=gridScale:6,density:1` |
+| `?debugTilt=1` | Live sensor readout: raw angles, neutral pose, resulting tilt |
 
 The GUI also has a **view** dropdown for the debug render modes, and a
 **Settings JSON** folder that copies and pastes the whole parameter set.
+
+## Tilt
+
+`src/input/TiltSource.ts` owns every input path and exposes one smoothed tilt
+vector in −1..1. Nothing else touches a raw pointer or sensor event. Pointer and
+touch drag stay wired up in every state, so a refused or missing sensor never
+leaves the material unexplorable, and a drag always overrides a running gyro.
+
+Raw `beta` and `gamma` are unusable as they arrive, so they go through, in order:
+neutral pose capture on the first event, slow baseline drift so the effect
+re-centres when posture changes, a deadzone and clamp, a gimbal guard that holds
+the last good value past 80 degrees rather than tracking through the flip, and
+a spring applied per frame rather than per event. Screen rotation is handled by
+one rotation of the device axes into screen axes, which covers all four
+orientations; the neutral pose is re-captured on rotation. Recalibrating is a
+double tap or the GUI button.
+
+### Verifying it
+
+The permission dialog and a real gyroscope both need a phone, but everything
+they feed into is tested headlessly in `tests/tilt.spec.ts` with synthetic
+orientation events: the permission branches including a thrown request, the
+silent-sensor timeout, the neutral pose, deadzone, clamp, gimbal guard, baseline
+drift, recalibration, both screen rotations, and the idle drift.
+
+That file also carries the check the PRD asks for in section 5.10.4. Hold the
+slab still, turn only the lights, and the colours must still sweep, which proves
+the hue comes from the half-vector rather than from geometry sliding. The same
+control drives the flashlight mode of section 5.1: set `slabRotationDeg` to 0
+and `lightRotationDeg` above it.
 
 ## On-device testing over HTTPS
 

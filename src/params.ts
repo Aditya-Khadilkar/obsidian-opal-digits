@@ -75,6 +75,7 @@ export interface Params {
   tiltSource: TiltSourceName;
   tiltRangeDeg: number;
   slabRotationDeg: number;
+  lightRotationDeg: number;
   springStiffness: number;
   recenterRate: number;
   deadzoneDeg: number;
@@ -135,6 +136,7 @@ export const DEFAULT_PARAMS: Params = {
   tiltSource: 'auto',
   tiltRangeDeg: 30,
   slabRotationDeg: 15,
+  lightRotationDeg: 0,
   springStiffness: 0.1,
   recenterRate: 0.002,
   deadzoneDeg: 1,

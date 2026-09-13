@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { ObsidianDigitsMaterial } from './material/ObsidianDigitsMaterial';
 import { TiltSource } from './input/TiltSource';
+import { StartOverlay } from './ui/startOverlay';
+import { TiltDebugPanel } from './ui/tiltDebug';
 import { createGui } from './ui/gui';
 import { FrameStats } from './ui/stats';
 import { DEFAULT_PARAMS, type Params } from './params';
@@ -12,6 +14,8 @@ const query = new URLSearchParams(location.search);
 /** Fixed tilt for deterministic screenshots, e.g. ?tilt=-0.6,0.3 */
 const fixedTilt = parseTilt(query.get('tilt'));
 const hideGui = query.has('nogui');
+/** ?debugTilt=1 shows the live sensor readout; see PRD section 8. */
+const showTiltDebug = query.has('debugTilt');
 
 function parseTilt(raw: string | null): THREE.Vector2 | null {
   if (!raw) return null;
@@ -76,6 +80,13 @@ scene.add(slab);
 
 const tiltSource = new TiltSource(renderer.domElement, params);
 const stats = new FrameStats(app);
+const tiltDebug = showTiltDebug ? new TiltDebugPanel(app, tiltSource) : null;
+
+// Skipped when the tilt is pinned for a screenshot, since there is no gesture to
+// offer and nothing for the sensor to drive.
+if (!fixedTilt) {
+  new StartOverlay(app, tiltSource, () => {});
+}
 const pane = hideGui
   ? null
   : createGui(params, {
@@ -112,6 +123,8 @@ resize();
 
 const clock = new THREE.Clock();
 const tilt = new THREE.Vector2();
+const lightQuat = new THREE.Quaternion();
+const lightEuler = new THREE.Euler();
 
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.1);
@@ -124,14 +137,24 @@ renderer.setAnimationLoop(() => {
     tilt.copy(tiltSource.tilt);
   }
 
-  // The camera never moves. The slab turns, and from phase 1 the lights
-  // counter-rotate so they stay put in world space.
+  // The camera never moves. The slab turns under lights that are fixed in world
+  // space, which is what sweeps the hue.
   const r = THREE.MathUtils.degToRad(params.slabRotationDeg);
   slab.rotation.set(-tilt.y * r, tilt.x * r, 0);
 
-  material.sync(params, time, tilt);
+  // Flashlight mode: turn the lights instead of, or as well as, the slab.
+  let lightRotation: THREE.Quaternion | undefined;
+  if (params.lightRotationDeg > 0) {
+    const lr = THREE.MathUtils.degToRad(params.lightRotationDeg);
+    lightEuler.set(tilt.y * lr, -tilt.x * lr, 0);
+    lightQuat.setFromEuler(lightEuler);
+    lightRotation = lightQuat;
+  }
+
+  material.sync(params, time, tilt, lightRotation);
   renderer.render(scene, camera);
 
+  tiltDebug?.update();
   stats.tick(dt);
   stats.setNote(fixedTilt ? 'fixed tilt' : tiltSource.getStatus());
 });
@@ -143,6 +166,7 @@ if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     renderer.setAnimationLoop(null);
     tiltSource.dispose();
+    tiltDebug?.dispose();
     pane?.dispose();
     renderer.dispose();
   });

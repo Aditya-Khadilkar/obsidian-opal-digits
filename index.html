@@ -34,6 +34,68 @@
       }
       body.nogui .stats { display: none; }
       .tp-dfwv { z-index: 10; width: 280px; }
+
+      .tilt-debug {
+        position: fixed;
+        left: max(10px, env(safe-area-inset-left));
+        top: max(10px, env(safe-area-inset-top));
+        padding: 8px 10px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.6);
+        color: #7fd8c9;
+        white-space: pre;
+        pointer-events: none;
+        z-index: 20;
+      }
+
+      .start-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: rgba(0, 0, 0, 0.55);
+        transition: opacity 380ms ease;
+      }
+      .start-overlay.is-hidden { opacity: 0; pointer-events: none; }
+      .start-button {
+        font: inherit;
+        font-size: 15px;
+        letter-spacing: 0.04em;
+        color: #cfeee7;
+        padding: 14px 28px;
+        border-radius: 999px;
+        border: 1px solid rgba(127, 216, 201, 0.5);
+        background: rgba(10, 26, 24, 0.75);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .start-button:hover { border-color: rgba(127, 216, 201, 0.9); }
+      .start-button:disabled { opacity: 0.5; cursor: default; }
+      .start-hint { margin: 0; color: #6f8a86; }
+
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: max(28px, env(safe-area-inset-bottom));
+        transform: translate(-50%, 12px);
+        padding: 10px 16px;
+        border-radius: 6px;
+        background: rgba(12, 30, 28, 0.92);
+        color: #cfeee7;
+        opacity: 0;
+        transition: opacity 320ms ease, transform 320ms ease;
+        pointer-events: none;
+        z-index: 40;
+      }
+      .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+
+      @media (prefers-reduced-motion: reduce) {
+        .start-overlay, .toast { transition: none; }
+      }
     </style>
   </head>
   <body>

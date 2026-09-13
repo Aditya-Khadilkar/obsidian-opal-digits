@@ -15,7 +15,7 @@ The full specification is in [the PRD](PRD-obsidian-opal-digits-shader_1.md).
 | 0 | Scaffold, procedural seven-segment digits, GUI, debug views | done, matched to the reference |
 | 1 | Diffraction, spectrum, world-fixed lights, tilt input | done |
 | 2 | Parallax layers, refraction, absorption, depth softening | done, 4 layers |
-| 3 | Fresnel, procedural studio reflections, surface waviness, bloom, tone mapping | not started |
+| 3 | Fresnel, procedural studio reflections, surface waviness, bloom, tone mapping | done |
 | 4 | Quality tiers, presets, digit animation, auto-drift idle state | not started |
 | 5 | Arbitrary mesh (stretch) | not started |
 
@@ -41,6 +41,36 @@ much bluer than "mostly green/teal with scattered magenta, blue, yellow and
 pink" suggests: green through blue is 87% of stroke pixels and yellow is 0.6%.
 And hue tracks brightness, dim cells reading blue and bright cells green, which
 is a useful constraint on the diffraction model in phase 1.
+
+## The glass
+
+Schlick Fresnel at F0 0.04 against a studio environment computed in the shader,
+so no HDR asset is needed: a dark room gradient plus one soft-edged rectangular
+highlight per virtual softbox. The softboxes are the same ones that light the
+diffraction gratings, so a highlight sliding across the surface and a band of
+colour sweeping through the digits are the same room light seen two ways.
+
+The surface normal carries low-amplitude fbm, because obsidian fractures
+conchoidally and a real piece is never optically flat. That waviness is what
+makes the highlights visible at all: with a 14 degree lens the slab is viewed
+almost head-on, and a perfectly flat surface reflects nothing back to the eye
+from softboxes at 40 degrees elevation. Only the reflection uses the perturbed
+normal. Letting it perturb the refraction would ripple the digit grid, and the
+reference's lattice is clean.
+
+The reflection is deliberately faint. Section 2 of the PRD calls for black glossy
+glass with faint surface reflections, and at full strength the sheen washes the
+digits out.
+
+### Post
+
+The material writes linear HDR and the post chain owns the output: bloom runs on
+those values so only genuinely bright spectral hits glow, then tone mapping and
+the sRGB encode, then film grain at about 1.5%. Tone mapping is ACES by default,
+with AgX, Khronos Neutral and none in the GUI.
+
+Not implemented: the optional micro-inclusion sparkle in the deepest layer from
+section 5.5.
 
 ## Depth
 
@@ -228,7 +258,37 @@ reference/                     reference imagery, see reference/README.md
 screenshots/phase-N/           captured output per phase
 ```
 
-### Depth
+### The glass
+
+Schlick Fresnel at F0 0.04 against a studio environment computed in the shader,
+so no HDR asset is needed: a dark room gradient plus one soft-edged rectangular
+highlight per virtual softbox. The softboxes are the same ones that light the
+diffraction gratings, so a highlight sliding across the surface and a band of
+colour sweeping through the digits are the same room light seen two ways.
+
+The surface normal carries low-amplitude fbm, because obsidian fractures
+conchoidally and a real piece is never optically flat. That waviness is what
+makes the highlights visible at all: with a 14 degree lens the slab is viewed
+almost head-on, and a perfectly flat surface reflects nothing back to the eye
+from softboxes at 40 degrees elevation. Only the reflection uses the perturbed
+normal. Letting it perturb the refraction would ripple the digit grid, and the
+reference's lattice is clean.
+
+The reflection is deliberately faint. Section 2 of the PRD calls for black glossy
+glass with faint surface reflections, and at full strength the sheen washes the
+digits out.
+
+### Post
+
+The material writes linear HDR and the post chain owns the output: bloom runs on
+those values so only genuinely bright spectral hits glow, then tone mapping and
+the sRGB encode, then film grain at about 1.5%. Tone mapping is ACES by default,
+with AgX, Khronos Neutral and none in the GUI.
+
+Not implemented: the optional micro-inclusion sparkle in the deepest layer from
+section 5.5.
+
+## Depth
 
 Four layers, faked entirely in the fragment shader: the refracted view ray is
 walked down to each layer's depth, the digit grid is sampled there, and the

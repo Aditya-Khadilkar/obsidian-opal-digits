@@ -16,6 +16,8 @@ export type ViewModeName = keyof typeof VIEW_MODES;
 
 export type TiltSourceName = 'auto' | 'gyro' | 'pointer' | 'auto-drift';
 
+export type ToneMappingName = 'aces' | 'agx' | 'neutral' | 'none';
+
 export interface Params {
   viewMode: ViewModeName;
 
@@ -49,6 +51,25 @@ export interface Params {
   absorptionTintG: number;
   absorptionTintB: number;
   deepDim: number;
+
+  // Obsidian surface, see PRD 5.5
+  f0: number;
+  envStrength: number;
+  envAmbient: number;
+  envBoxIntensity: number;
+  envBoxSoftness: number;
+  envBoxWidth: number;
+  envBoxHeight: number;
+  surfaceWaviness: number;
+  wavinessScale: number;
+
+  // Post, see PRD 5.6
+  bloomStrength: number;
+  bloomRadius: number;
+  bloomThreshold: number;
+  toneMapping: ToneMappingName;
+  toneExposure: number;
+  grainAmount: number;
 
   // Camera. A long lens keeps the view vector nearly constant across the slab,
   // which is the condition the reference photograph was shot under. A wide one
@@ -103,7 +124,7 @@ export const DEFAULT_PARAMS: Params = {
   glyphFillX: 0.89,
   glyphFillY: 0.96,
   density: 1.0,      // every cell carries a digit
-  deepDensity: 0.5,  // deeper layers are sparse, so the stack stays legible
+  deepDensity: 0.51,  // deeper layers are sparse, so the stack stays legible
   ghostIntensity: 0, // the reference has no unlit ghost glyphs
   ghostColor: '#12514b',
   segThickness: 0.22, // fraction of glyph width
@@ -121,11 +142,28 @@ export const DEFAULT_PARAMS: Params = {
   layerSpacing: 0.18,
   layerOffsetCells: 0.6,
   depthSoftness: 0.06, // the reference shows no depth blur, so keep this slight
-  absorptionSigma: 4.5,
+  absorptionSigma: 1.56,
   absorptionTintR: 2.14,
   absorptionTintG: 1.0,
   absorptionTintB: 0.83,
-  deepDim: 0.54,
+  deepDim: 0.57,
+
+  f0: 0.04,          // glass at normal incidence
+  envStrength: 0.3,
+  envAmbient: 0.02,
+  envBoxIntensity: 2.2,
+  envBoxSoftness: 0.18,
+  envBoxWidth: 0.55,
+  envBoxHeight: 0.22,
+  surfaceWaviness: 0.22,
+  wavinessScale: 1.1,
+
+  bloomStrength: 0.35,
+  bloomRadius: 0.5,
+  bloomThreshold: 1.3,
+  toneMapping: 'aces',
+  toneExposure: 1.02,
+  grainAmount: 0.015,
 
   cameraFov: 14,
 
@@ -153,7 +191,7 @@ export const DEFAULT_PARAMS: Params = {
   bodyNoiseScale: 1.4,
   bodyLambdaMin: 440,
   bodyLambdaMax: 560,
-  saturation: 0.68,
+  saturation: 0.63,
   exposure: 1.4,
 
   tiltSource: 'auto',

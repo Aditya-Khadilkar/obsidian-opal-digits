@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ObsidianDigitsMaterial } from './material/ObsidianDigitsMaterial';
+import { PostChain } from './post/composer';
 import { TiltSource } from './input/TiltSource';
 import { StartOverlay } from './ui/startOverlay';
 import { TiltDebugPanel } from './ui/tiltDebug';
@@ -59,10 +60,9 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: 'high-performance',
 });
 renderer.setClearColor(0x000000, 1);
-// The fragment shader does its own linear -> sRGB encode, and from phase 3 its
-// own tone mapping, so three.js must not apply either.
+// The material writes linear HDR; the post chain owns tone mapping and the
+// output transform, so bloom sees the real highlight values first.
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.NoToneMapping;
 app.appendChild(renderer.domElement);
 
 const isMobile = matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -77,6 +77,8 @@ const slab = new THREE.Mesh(
   material,
 );
 scene.add(slab);
+
+const post = new PostChain(renderer, scene, camera);
 
 const tiltSource = new TiltSource(renderer.domElement, params);
 const stats = new FrameStats(app);
@@ -114,6 +116,8 @@ function resize(): void {
   const distForWidth = SLAB.width / VIEWPORT_FILL / (2 * Math.tan(halfFov) * camera.aspect);
   camera.position.set(0, 0, Math.max(distForHeight, distForWidth) + SLAB.depth);
   camera.updateProjectionMatrix();
+
+  post.setSize(width, height, Math.min(devicePixelRatio, maxDpr));
 }
 addEventListener('resize', resize);
 // Catches the case where the element gains size without a window resize, e.g.
@@ -152,7 +156,8 @@ renderer.setAnimationLoop(() => {
   }
 
   material.sync(params, time, tilt, lightRotation);
-  renderer.render(scene, camera);
+  post.sync(params, time);
+  post.render();
 
   tiltDebug?.update();
   stats.tick(dt);
@@ -167,6 +172,7 @@ if (import.meta.hot) {
     renderer.setAnimationLoop(null);
     tiltSource.dispose();
     tiltDebug?.dispose();
+    post.dispose();
     pane?.dispose();
     renderer.dispose();
   });

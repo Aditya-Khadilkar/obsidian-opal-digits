@@ -37,6 +37,28 @@ export function createGui(params: Params, hooks: GuiHooks): Pane {
   glyph.addBinding(params, 'ghostColor', { label: 'ghost colour' });
   glyph.addBinding(params, 'mediumColor', { label: 'medium' });
 
+  const surface = pane.addFolder({ title: 'Obsidian surface' });
+  surface.addBinding(params, 'f0', { label: 'F0', min: 0, max: 0.2, step: 0.002 });
+  surface.addBinding(params, 'envStrength', { label: 'reflection', min: 0, max: 4, step: 0.02 });
+  surface.addBinding(params, 'envAmbient', { label: 'room', min: 0, max: 0.3, step: 0.002 });
+  surface.addBinding(params, 'envBoxIntensity', { label: 'softbox', min: 0, max: 8, step: 0.05 });
+  surface.addBinding(params, 'envBoxSoftness', { label: 'softbox edge', min: 0.01, max: 0.8, step: 0.01 });
+  surface.addBinding(params, 'envBoxWidth', { label: 'softbox w', min: 0.05, max: 1.4, step: 0.01 });
+  surface.addBinding(params, 'envBoxHeight', { label: 'softbox h', min: 0.05, max: 1.4, step: 0.01 });
+  surface.addBinding(params, 'surfaceWaviness', { label: 'waviness', min: 0, max: 0.5, step: 0.005 });
+  surface.addBinding(params, 'wavinessScale', { label: 'waviness scale', min: 0.1, max: 12, step: 0.1 });
+
+  const post = pane.addFolder({ title: 'Post' });
+  post.addBinding(params, 'bloomStrength', { label: 'bloom', min: 0, max: 2, step: 0.01 });
+  post.addBinding(params, 'bloomRadius', { label: 'bloom radius', min: 0, max: 1.5, step: 0.01 });
+  post.addBinding(params, 'bloomThreshold', { label: 'bloom threshold', min: 0, max: 2, step: 0.01 });
+  post.addBinding(params, 'toneMapping', {
+    label: 'tone map',
+    options: { agx: 'agx', aces: 'aces', neutral: 'neutral', none: 'none' },
+  });
+  post.addBinding(params, 'toneExposure', { label: 'exposure', min: 0.05, max: 4, step: 0.01 });
+  post.addBinding(params, 'grainAmount', { label: 'grain', min: 0, max: 0.08, step: 0.001 });
+
   const cam = pane.addFolder({ title: 'Camera' });
   cam.addBinding(params, 'cameraFov', { label: 'fov deg', min: 8, max: 60, step: 0.5 })
     .on('change', hooks.onCameraChange);

@@ -51,7 +51,7 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
         uGlyphFillX: { value: 0.89 },
         uGlyphFillY: { value: 0.96 },
         uDensity: { value: 1 },
-        uDeepDensity: { value: 0.5 },
+        uDeepDensity: { value: 0.51 },
         uGhostIntensity: { value: 0 },
         uGhostColor: { value: new THREE.Color('#12514b') },
         uSegThickness: { value: 0.22 },
@@ -68,9 +68,18 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
         uLayerSpacing: { value: 0.18 },
         uLayerOffsetCells: { value: 0.6 },
         uDepthSoftness: { value: 0.06 },
-        uAbsorptionSigma: { value: 4.5 },
+        uAbsorptionSigma: { value: 1.56 },
         uAbsorptionTint: { value: new THREE.Vector3(2.14, 1.0, 0.83) },
-        uDeepDim: { value: 0.54 },
+        uDeepDim: { value: 0.57 },
+
+        uF0: { value: 0.04 },
+        uEnvStrength: { value: 0.3 },
+        uEnvAmbient: { value: 0.02 },
+        uEnvBoxIntensity: { value: 2.2 },
+        uEnvBoxSoftness: { value: 0.18 },
+        uEnvBoxSize: { value: new THREE.Vector2(0.55, 0.22) },
+        uSurfaceWaviness: { value: 0.22 },
+        uWavinessScale: { value: 1.1 },
 
         uLightDirs: { value: worldLightDirs(40, 44) },
         uLightIntensities: { value: [1.0, 0.6, 0.45] },
@@ -95,7 +104,7 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
         uBodyNoiseScale: { value: 1.4 },
         uBodyLambdaMin: { value: 440 },
         uBodyLambdaMax: { value: 560 },
-        uSaturation: { value: 0.68 },
+        uSaturation: { value: 0.63 },
         uExposure: { value: 1.4 },
       },
     });
@@ -162,6 +171,15 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
       params.absorptionTintR, params.absorptionTintG, params.absorptionTintB,
     );
     u.uDeepDim.value = params.deepDim;
+
+    u.uF0.value = params.f0;
+    u.uEnvStrength.value = params.envStrength;
+    u.uEnvAmbient.value = params.envAmbient;
+    u.uEnvBoxIntensity.value = params.envBoxIntensity;
+    u.uEnvBoxSoftness.value = params.envBoxSoftness;
+    (u.uEnvBoxSize.value as THREE.Vector2).set(params.envBoxWidth, params.envBoxHeight);
+    u.uSurfaceWaviness.value = params.surfaceWaviness;
+    u.uWavinessScale.value = params.wavinessScale;
 
     u.uLightIntensity.value = params.lightIntensity;
     const dirs = u.uLightDirs.value as THREE.Vector3[];

@@ -4,6 +4,7 @@ precision highp float;
 #include "segments.glsl"
 #include "spectrum.glsl"
 #include "diffraction.glsl"
+#include "obsidian.glsl"
 
 // View modes, kept in sync with VIEW_MODES in src/params.ts.
 #define VIEW_FINAL          0
@@ -53,6 +54,16 @@ uniform float uDepthSoftness;
 uniform float uAbsorptionSigma;
 uniform vec3  uAbsorptionTint;
 uniform float uDeepDim;
+
+// Obsidian surface, see PRD 5.5.
+uniform float uF0;
+uniform float uEnvAmbient;
+uniform float uEnvBoxIntensity;
+uniform float uEnvBoxSoftness;
+uniform vec2  uEnvBoxSize;
+uniform float uEnvStrength;
+uniform float uSurfaceWaviness;
+uniform float uWavinessScale;
 
 // Lights are given in WORLD space and the tangent basis is built from the model
 // matrix, so turning the slab moves it relative to the lights on its own. That
@@ -274,10 +285,20 @@ LayerSample sampleLayer(int k, vec2 uv, vec3 viewMedium, mat3 tbn) {
 
 void main() {
   // Columns are the tangent basis, so `v * tbn` projects a world vector into
-  // tangent space.
+  // tangent space, and `tbn * v` lifts a tangent vector back into world space.
   mat3 tbn = mat3(normalize(vTangentW), normalize(vBitangentW), normalize(vNormalW));
-  vec3 Vt = normalize(normalize(cameraPosition - vPosW) * tbn);
+  vec3 Vw = normalize(cameraPosition - vPosW);
+  vec3 Vt = normalize(Vw * tbn);
   vec3 viewMedium = intoMedium(Vt, uIor);
+
+  // Surface: a slightly wavy normal, its Fresnel term, and what it reflects.
+  vec3 nTangent = wavySurfaceNormal(vSurfUV, uSurfaceWaviness, uWavinessScale);
+  vec3 nWorld = normalize(tbn * nTangent);
+  float fresnel = schlickFresnel(max(dot(nTangent, Vt), 0.0), uF0);
+  vec3 reflection = studioEnvironment(
+    reflect(-Vw, nWorld), uLightDirs[0], uLightDirs[1], uLightDirs[2],
+    uEnvAmbient, uEnvBoxIntensity, uEnvBoxSoftness, uEnvBoxSize
+  ) * uEnvStrength;
 
   // Front to back, so a near digit occludes the ones behind it and the loop can
   // stop contributing once the view is opaque.
@@ -311,7 +332,11 @@ void main() {
 
   vec3 medium = uMediumColor;
   if (frontGhost > 0.0) medium = mix(medium, uGhostColor, frontGhost * uGhostIntensity);
-  vec3 finalColour = medium * (1.0 - acc) + col;
+  vec3 interior = medium * (1.0 - acc) + col;
+
+  // What the eye gets: the reflected room, plus whatever survives transmission
+  // through the surface.
+  vec3 finalColour = fresnel * reflection + (1.0 - fresnel) * interior;
 
   if (uViewMode == VIEW_SEGMENT_MASK) {
     DigitHit front = sampleDigits(vSurfUV, 0.0, 0.0, layerDensity(0));
@@ -331,6 +356,10 @@ void main() {
     float angle;
     finalColour = digitSpectrum(vSurfUV, floor(vSurfUV * uGridScale), 0.0, tbn, angle)
       * uExposure;
+  } else if (uViewMode == VIEW_FRESNEL) {
+    // Surface only, with the interior removed, so highlights can be watched
+    // sliding across the slab independently of the digits.
+    finalColour = fresnel * reflection;
   } else if (uViewMode == VIEW_COSINE_PALETTE) {
     // The stylised comparison the PRD asks for: same geometry and the same
     // per-cell parameter, but a smooth palette instead of a grating.
@@ -343,5 +372,7 @@ void main() {
   // Keeps the tilt uniform live until a later phase consumes it.
   finalColour += 0.0 * vec3(uTilt, 0.0) + 0.0 * frontBody;
 
-  fragColor = vec4(linearToSRGB(finalColour), 1.0);
+  // Linear HDR out. Tone mapping and the sRGB encode happen at the end of the
+  // post chain, after bloom has had a chance to see the real highlight values.
+  fragColor = vec4(finalColour, 1.0);
 }

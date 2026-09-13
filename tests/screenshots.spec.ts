@@ -23,6 +23,7 @@ const VIEWS: Array<[string, string]> = [
   ['grating-angle', 'grating angle'],
   ['diffraction-only', 'diffraction only'],
   ['cosine-palette', 'cosine-palette comparison'],
+  ['fresnel', 'fresnel / reflection only (phase 3)'],
 ];
 
 async function open(page: import('@playwright/test').Page, query: string) {

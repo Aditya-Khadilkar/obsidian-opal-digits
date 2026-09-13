@@ -273,7 +273,8 @@ test.describe('how tilt reaches the shader (PRD 5.10.4)', () => {
   }
 
   test('nothing turning means nothing moves', async ({ page }) => {
-    const set = 'slabRotationDeg:0,lightRotationDeg:0';
+    // Grain off: it is animated by design, so two renders are never identical.
+    const set = 'slabRotationDeg:0,lightRotationDeg:0,grainAmount:0';
     const d = await pixelDifference(
       page,
       await shotAt(page, '-1,0', set),
@@ -283,7 +284,7 @@ test.describe('how tilt reaches the shader (PRD 5.10.4)', () => {
   });
 
   test('colours sweep with the slab held still and only the lights turning', async ({ page }) => {
-    const set = 'slabRotationDeg:0,lightRotationDeg:15';
+    const set = 'slabRotationDeg:0,lightRotationDeg:15,grainAmount:0';
     const d = await pixelDifference(
       page,
       await shotAt(page, '-1,0', set),

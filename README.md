@@ -16,7 +16,7 @@ The full specification is in [the PRD](PRD-obsidian-opal-digits-shader_1.md).
 | 1 | Diffraction, spectrum, world-fixed lights, tilt input | done |
 | 2 | Parallax layers, refraction, absorption, depth softening | done, 4 layers |
 | 3 | Fresnel, procedural studio reflections, surface waviness, bloom, tone mapping | done |
-| 4 | Quality tiers, presets, digit animation, auto-drift idle state | not started |
+| 4 | Quality tiers, presets, digit animation, auto-drift idle state | done |
 | 5 | Arbitrary mesh (stretch) | not started |
 
 ## The PRD's description of the reference is wrong in four places
@@ -41,6 +41,36 @@ much bluer than "mostly green/teal with scattered magenta, blue, yellow and
 pink" suggests: green through blue is 87% of stroke pixels and yellow is 0.6%.
 And hue tracks brightness, dim cells reading blue and bright cells green, which
 is a useful constraint on the diffraction model in phase 1.
+
+## Quality and presets
+
+Three tiers, each a set of compile-time defines so the light, order and layer
+loops all unroll:
+
+| Tier | Layers | Lights | Orders | Pixel ratio |
+| --- | --- | --- | --- | --- |
+| low | up to 3 | 1 | 2 | 1.0 |
+| medium | up to 5 | 2 | 3 | 1.5 |
+| high | up to 8 | 3 | 3 | 2.0 |
+
+The PRD states those layer numbers as counts. They are **caps** here, because the
+authored look is four layers and a tier is a performance budget rather than an
+art direction: a fast machine should render the piece as designed, not add
+layers nobody asked for.
+
+The room always has three softboxes. A tier bounds how many the diffraction sum
+can afford; the surface reflection still sees all of them.
+
+On `auto`, the tier starts from the platform, high on desktop and medium on
+touch, and steps **down** on sustained slow frames. It never steps up, because
+frame time is capped by vsync: a machine with plenty of headroom reports the
+same 16.7 ms as one with none, so there is no signal to climb on. The overlay in
+the corner shows the tier in force.
+
+Three presets sit at the top of the GUI. **Reference** is the defaults, fitted to
+measurements of the photograph rather than chosen by eye. **Opal** widens the
+blaze and the pitch spread so more of the spectrum arrives at once. **Deep
+Obsidian** leans on absorption and the surface instead of the digits.
 
 ## The glass
 
@@ -152,6 +182,10 @@ on-device checks take seconds.
 | `?set=key:value,key:value` | Overrides any parameter, e.g. `?set=gridScale:6,density:1` |
 | `?debugTilt=1` | Live sensor readout: raw angles, neutral pose, resulting tilt |
 
+Digit animation is off by default; `?set=digitSpeed:2` starts the cells counting.
+Each counts at its own rate, and the grating angle is drawn from a different
+per-cell hash than the digit, so a cell's colour stays put as its digit changes.
+
 The GUI also has a **view** dropdown for the debug render modes, and a
 **Settings JSON** folder that copies and pastes the whole parameter set.
 
@@ -258,7 +292,37 @@ reference/                     reference imagery, see reference/README.md
 screenshots/phase-N/           captured output per phase
 ```
 
-### The glass
+### Quality and presets
+
+Three tiers, each a set of compile-time defines so the light, order and layer
+loops all unroll:
+
+| Tier | Layers | Lights | Orders | Pixel ratio |
+| --- | --- | --- | --- | --- |
+| low | up to 3 | 1 | 2 | 1.0 |
+| medium | up to 5 | 2 | 3 | 1.5 |
+| high | up to 8 | 3 | 3 | 2.0 |
+
+The PRD states those layer numbers as counts. They are **caps** here, because the
+authored look is four layers and a tier is a performance budget rather than an
+art direction: a fast machine should render the piece as designed, not add
+layers nobody asked for.
+
+The room always has three softboxes. A tier bounds how many the diffraction sum
+can afford; the surface reflection still sees all of them.
+
+On `auto`, the tier starts from the platform, high on desktop and medium on
+touch, and steps **down** on sustained slow frames. It never steps up, because
+frame time is capped by vsync: a machine with plenty of headroom reports the
+same 16.7 ms as one with none, so there is no signal to climb on. The overlay in
+the corner shows the tier in force.
+
+Three presets sit at the top of the GUI. **Reference** is the defaults, fitted to
+measurements of the photograph rather than chosen by eye. **Opal** widens the
+blaze and the pitch spread so more of the spectrum arrives at once. **Deep
+Obsidian** leans on absorption and the surface instead of the digits.
+
+## The glass
 
 Schlick Fresnel at F0 0.04 against a studio environment computed in the shader,
 so no HDR asset is needed: a dark room gradient plus one soft-edged rectangular

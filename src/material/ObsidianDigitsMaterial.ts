@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import vertexShader from '../shaders/main.vert';
 import fragmentShader from '../shaders/main.frag';
 import { VIEW_MODES, type Params } from '../params';
+import { QUALITY_TIERS, type QualityTierName } from '../quality';
 
 /** Azimuths of the three virtual softboxes, spread around the slab. */
 const LIGHT_AZIMUTHS_DEG = [60, 190, 310];
@@ -40,7 +41,7 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
       glslVersion: THREE.GLSL3,
       vertexShader,
       fragmentShader,
-      defines: { LAYERS: 4 },
+      defines: { LAYERS: 4, LIGHTS: 3, ORDERS: 3 },
       uniforms: {
         uTime: { value: 0 },
         uTilt: { value: new THREE.Vector2() },
@@ -111,13 +112,25 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
   }
 
   /**
-   * The layer count is a compile-time define, so changing it costs a shader
-   * recompile. Guarded, since this runs every frame.
+   * Layers, lights and orders are compile-time defines, so any change costs a
+   * shader recompile. Guarded, since this runs every frame.
+   *
+   * The tier caps the layer count rather than replacing it: it is a performance
+   * budget, not an art direction.
    */
-  private setLayerCount(layers: number): void {
-    const n = THREE.MathUtils.clamp(Math.round(layers), 1, 8);
-    if (this.defines.LAYERS === n) return;
+  private setQuality(layers: number, tier: QualityTierName): void {
+    const budget = QUALITY_TIERS[tier];
+    const n = THREE.MathUtils.clamp(Math.round(layers), 1, budget.maxLayers);
+    if (
+      this.defines.LAYERS === n &&
+      this.defines.LIGHTS === budget.lights &&
+      this.defines.ORDERS === budget.orders
+    ) {
+      return;
+    }
     this.defines.LAYERS = n;
+    this.defines.LIGHTS = budget.lights;
+    this.defines.ORDERS = budget.orders;
     this.needsUpdate = true;
   }
 
@@ -136,6 +149,7 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
     params: Params,
     time: number,
     tilt: THREE.Vector2,
+    tier: QualityTierName,
     lightRotation?: THREE.Quaternion,
   ): void {
     const u = this.uniforms;
@@ -162,7 +176,7 @@ export class ObsidianDigitsMaterial extends THREE.ShaderMaterial {
     u.uDigitSpeed.value = params.digitSpeed;
     (u.uMediumColor.value as THREE.Color).set(params.mediumColor);
 
-    this.setLayerCount(params.layers);
+    this.setQuality(params.layers, tier);
     u.uLayerSpacing.value = params.layerSpacing;
     u.uLayerOffsetCells.value = params.layerOffsetCells;
     u.uDepthSoftness.value = params.depthSoftness;

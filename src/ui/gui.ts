@@ -1,5 +1,6 @@
 import { Pane } from 'tweakpane';
 import { DEFAULT_PARAMS, VIEW_MODES, type Params } from '../params';
+import { PRESETS, applyPreset, type PresetName } from '../presets';
 
 interface GuiHooks {
   onRecalibrate: () => void;
@@ -9,6 +10,20 @@ interface GuiHooks {
 /** Builds the Tweakpane UI. Folders track the PRD's parameter groups. */
 export function createGui(params: Params, hooks: GuiHooks): Pane {
   const pane = new Pane({ title: 'Obsidian Opal Digits' });
+
+  const presets = pane.addFolder({ title: 'Presets' });
+  for (const name of Object.keys(PRESETS) as PresetName[]) {
+    presets.addButton({ title: name }).on('click', () => {
+      applyPreset(params, name);
+      pane.refresh();
+      hooks.onCameraChange();   // presets may move the camera or the tier
+    });
+  }
+
+  pane.addBinding(params, 'quality', {
+    label: 'quality',
+    options: { auto: 'auto', low: 'low', medium: 'medium', high: 'high' },
+  });
 
   pane.addBinding(params, 'viewMode', {
     label: 'view',

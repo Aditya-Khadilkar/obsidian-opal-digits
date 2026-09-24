@@ -15,7 +15,16 @@ precision highp float;
 #define VIEW_FRESNEL        5
 #define VIEW_COSINE_PALETTE 6
 
-#define LIGHTS 3
+// Virtual softboxes. A compile-time define, like the orders and the layers, so
+// the loop unrolls and the quality tier can trade them away.
+//
+// The room always HAS three. LIGHTS bounds how many the diffraction sum can
+// afford; the reflection still sees all of them, because a tier is a budget for
+// computation rather than a different studio.
+#define MAX_LIGHTS 3
+#ifndef LIGHTS
+  #define LIGHTS 3
+#endif
 
 // Layer count is a compile-time define so the parallax loop unrolls and there
 // are no texture fetches or dynamic bounds in the hot path. The material sets it
@@ -69,8 +78,8 @@ uniform float uWavinessScale;
 // matrix, so turning the slab moves it relative to the lights on its own. That
 // is what a real holographic card does, and it removes the need to counter-
 // rotate the light directions on the CPU.
-uniform vec3  uLightDirs[LIGHTS];
-uniform float uLightIntensities[LIGHTS];
+uniform vec3  uLightDirs[MAX_LIGHTS];
+uniform float uLightIntensities[MAX_LIGHTS];
 uniform float uLightIntensity;
 uniform float uFillIntensity;
 
@@ -124,6 +133,15 @@ vec2 gridWarp(vec2 p) {
   return p;
 }
 
+// Grid coordinate of a surface point, and the cell it falls in.
+vec2 gridCoord(vec2 uv) {
+  return gridWarp(uv) * vec2(uGridScale, uGridScale / uCellAspect);
+}
+
+vec2 cellAt(vec2 uv) {
+  return floor(gridCoord(uv));
+}
+
 // The digit a cell shows. With uDigitSpeed at 0 this is a fixed per-cell value.
 int cellDigit(vec2 cell, float layer) {
   float h = cellHash(cell, layer, 3.0);
@@ -139,7 +157,7 @@ DigitHit sampleDigits(vec2 uv, float layer, float soft, float density) {
 
   // Cells are taller than wide. Dividing y by the aspect makes one grid unit one
   // cell on both axes; the glyph is then evaluated in an undistorted space.
-  vec2 g = gridWarp(uv) * vec2(uGridScale, uGridScale / uCellAspect);
+  vec2 g = gridCoord(uv);
   hit.cell = floor(g);
   vec2 local = fract(g) - 0.5;
   vec2 q = vec2(local.x, local.y * uCellAspect);
@@ -350,12 +368,20 @@ void main() {
       ? vec3(0.02)
       : srgbToLinear(cosinePalette(topLayer / float(LAYERS)));
   } else if (uViewMode == VIEW_GRATING_ANGLE) {
-    float a = fract(frontAngle / PI);
-    finalColour = srgbToLinear(cosinePalette(a)) * max(acc, 0.15);
+    // The grating field itself, read at the front layer's cell whether or not a
+    // digit covers it. Taking the angle from whichever layer happened to win
+    // made the view flicker while digits animated, which hid the very thing it
+    // is for: the angle does not depend on the digit.
+    Grating g = gratingAt(
+      vSurfUV, cellAt(vSurfUV), 0.0, uAngleBase, uAngleSpread, uAngleNoise,
+      uAngleNoiseScale, uPitchMin, uPitchMax, uPitchBias, uBlazeCentre, uBlazeJitter
+    );
+    DigitHit front = sampleDigits(vSurfUV, 0.0, 0.0, layerDensity(0));
+    float a = fract(atan(g.tangent.y, g.tangent.x) / PI);
+    finalColour = srgbToLinear(cosinePalette(a)) * mix(0.3, 1.0, front.body);
   } else if (uViewMode == VIEW_DIFFRACTION) {
     float angle;
-    finalColour = digitSpectrum(vSurfUV, floor(vSurfUV * uGridScale), 0.0, tbn, angle)
-      * uExposure;
+    finalColour = digitSpectrum(vSurfUV, cellAt(vSurfUV), 0.0, tbn, angle) * uExposure;
   } else if (uViewMode == VIEW_FRESNEL) {
     // Surface only, with the interior removed, so highlights can be watched
     // sliding across the slab independently of the digits.

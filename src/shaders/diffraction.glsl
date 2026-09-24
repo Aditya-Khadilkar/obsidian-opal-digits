@@ -13,7 +13,11 @@
 #include "common.glsl"
 #include "spectrum.glsl"
 
-#define ORDERS 3
+// Diffraction orders summed per light. A compile-time define so the loop
+// unrolls; the quality tier sets it.
+#ifndef ORDERS
+  #define ORDERS 3
+#endif
 
 struct Grating {
   vec2  tangent;  // grating direction in tangent space, unit length

@@ -7,6 +7,7 @@ import { TiltDebugPanel } from './ui/tiltDebug';
 import { createGui } from './ui/gui';
 import { FrameStats } from './ui/stats';
 import { DEFAULT_PARAMS, type Params } from './params';
+import { QUALITY_TIERS, QualityProbe } from './quality';
 
 const SLAB = { width: 2.6, height: 1.9, depth: 0.42 };
 const VIEWPORT_FILL = 0.8; // slab covers this fraction of the viewport
@@ -54,6 +55,8 @@ const app = document.getElementById('app') as HTMLElement;
 
 const params: Params = { ...DEFAULT_PARAMS };
 applyOverrides(params, query.get('set'));
+// Exposed so the test harness can drive presets without a GUI.
+(window as unknown as { __params: Params }).__params = params;
 
 const renderer = new THREE.WebGLRenderer({
   antialias: false, // the digit SDFs are analytically anti-aliased
@@ -66,7 +69,17 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 app.appendChild(renderer.domElement);
 
 const isMobile = matchMedia('(hover: none) and (pointer: coarse)').matches;
-const maxDpr = isMobile ? 1.5 : 2;
+// Platform cap from PRD section 6; the quality tier can lower it further.
+const platformDpr = isMobile ? 1.5 : 2;
+const quality = new QualityProbe(isMobile);
+
+function activeTier() {
+  return params.quality === 'auto' ? quality.tier : params.quality;
+}
+
+function currentPixelRatio(): number {
+  return Math.min(devicePixelRatio, platformDpr, QUALITY_TIERS[activeTier()].maxPixelRatio);
+}
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(params.cameraFov, 1, 0.1, 100);
@@ -105,7 +118,7 @@ function resize(): void {
   const height = app.clientHeight;
   if (width === 0 || height === 0) return;
 
-  renderer.setPixelRatio(Math.min(devicePixelRatio, maxDpr));
+  renderer.setPixelRatio(currentPixelRatio());
   renderer.setSize(width, height, false);
 
   camera.aspect = width / height;
@@ -117,7 +130,7 @@ function resize(): void {
   camera.position.set(0, 0, Math.max(distForHeight, distForWidth) + SLAB.depth);
   camera.updateProjectionMatrix();
 
-  post.setSize(width, height, Math.min(devicePixelRatio, maxDpr));
+  post.setSize(width, height, currentPixelRatio());
 }
 addEventListener('resize', resize);
 // Catches the case where the element gains size without a window resize, e.g.
@@ -155,13 +168,14 @@ renderer.setAnimationLoop(() => {
     lightRotation = lightQuat;
   }
 
-  material.sync(params, time, tilt, lightRotation);
+  if (params.quality === 'auto' && quality.update(dt)) resize();
+  material.sync(params, time, tilt, activeTier(), lightRotation);
   post.sync(params, time);
   post.render();
 
   tiltDebug?.update();
   stats.tick(dt);
-  stats.setNote(fixedTilt ? 'fixed tilt' : tiltSource.getStatus());
+  stats.setNote(`${activeTier()} · ${fixedTilt ? 'fixed tilt' : tiltSource.getStatus()}`);
 });
 
 // Signals to the screenshot harness that the first frame has been drawn.

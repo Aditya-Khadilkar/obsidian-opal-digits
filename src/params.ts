@@ -1,6 +1,8 @@
 // Single source of truth for every tunable value. The GUI binds to this object
 // and the material copies it into uniforms once per frame.
 
+import type { QualitySetting } from './quality';
+
 /** Debug views. The numeric values must match the VIEW_* defines in main.frag. */
 export const VIEW_MODES = {
   'final': 0,
@@ -17,6 +19,8 @@ export type ViewModeName = keyof typeof VIEW_MODES;
 export type TiltSourceName = 'auto' | 'gyro' | 'pointer' | 'auto-drift';
 
 export type ToneMappingName = 'aces' | 'agx' | 'neutral' | 'none';
+
+export type { QualitySetting } from './quality';
 
 export interface Params {
   viewMode: ViewModeName;
@@ -70,6 +74,9 @@ export interface Params {
   toneMapping: ToneMappingName;
   toneExposure: number;
   grainAmount: number;
+
+  // Quality, see PRD 6
+  quality: QualitySetting;
 
   // Camera. A long lens keeps the view vector nearly constant across the slab,
   // which is the condition the reference photograph was shot under. A wide one
@@ -147,6 +154,8 @@ export const DEFAULT_PARAMS: Params = {
   absorptionTintG: 1.0,
   absorptionTintB: 0.83,
   deepDim: 0.57,
+
+  quality: 'auto',
 
   f0: 0.04,          // glass at normal incidence
   envStrength: 0.3,

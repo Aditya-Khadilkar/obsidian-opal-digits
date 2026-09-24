@@ -1,3 +1,12 @@
 name = "obsidian-opal-digits"
 compatibility_date = "2025-09-01"
-pages_build_output_dir = "dist"
+
+# Static-asset Worker. There is no Worker script: `directory` is the built site
+# and Cloudflare serves it directly.
+#
+# This is deliberately NOT `pages_build_output_dir`. The project was created
+# through the Workers import flow, so its deploy command is `wrangler deploy`;
+# the Pages key made wrangler treat the same project as a Pages site and refuse
+# to deploy for want of an entry point.
+[assets]
+directory = "./dist"

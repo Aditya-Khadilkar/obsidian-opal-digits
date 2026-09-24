@@ -261,35 +261,35 @@ Permissions-Policy: accelerometer=*, gyroscope=*, magnetometer=*
 This project already sends that header, from `public/_headers` in production and
 from `vite.config.ts` in development.
 
-## Deploying to Cloudflare Pages
+## Deploying to Cloudflare
 
 The repo is at
-[Aditya-Khadilkar/obsidian-opal-digits](https://github.com/Aditya-Khadilkar/obsidian-opal-digits).
-Connect it once in the dashboard and every push to `main` redeploys.
+[Aditya-Khadilkar/obsidian-opal-digits](https://github.com/Aditya-Khadilkar/obsidian-opal-digits),
+connected to Cloudflare as a **static-asset Worker**. Every push to `main`
+rebuilds and redeploys; there is nothing to configure in the dashboard.
 
-At **dash.cloudflare.com → Workers & Pages → Create → Pages → Connect to Git**,
-pick the repo and set:
+`wrangler.toml` declares the built site as the asset directory and no Worker
+script, which is what lets `wrangler deploy` serve `dist` directly:
+
+```toml
+[assets]
+directory = "./dist"
+```
+
+Do not put `pages_build_output_dir` back. It marks the project as Pages, and the
+Workers import flow deploys with `wrangler deploy`, so the two disagree and the
+deploy fails for want of an entry point.
+
+Build settings, if they ever need re-entering:
 
 | Setting | Value |
 | --- | --- |
-| Framework preset | None |
 | Build command | `npm run build` |
-| Build output directory | `dist` |
-| Root directory | leave empty |
+| Deploy command | `npx wrangler deploy` |
+| Path / root directory | leave empty |
 
-Nothing else is needed. `.node-version` pins Node to 22.16, which Vite 7
-requires, and `public/_headers` is copied into `dist` by the build, so the
-sensor permissions policy and the asset caching rules ship with the site.
-
-To upload a build straight from here instead, authorise once and deploy:
-
-```bash
-npx wrangler login
-```
-
-```bash
-npm run deploy
-```
+`.node-version` pins Node to 22.16, which Vite 7 requires. To deploy by hand,
+authorise once with `npx wrangler login` and then run `npm run deploy`.
 
 ### The gyroscope on the deployed site
 

@@ -288,8 +288,23 @@ Build settings, if they ever need re-entering:
 | Deploy command | `npx wrangler deploy` |
 | Path / root directory | leave empty |
 
-`.node-version` pins Node to 22.16, which Vite 7 requires. To deploy by hand,
-authorise once with `npx wrangler login` and then run `npm run deploy`.
+`.node-version` pins Node to 22.16, which Vite 7 requires. Wrangler is a pinned
+dev dependency rather than something `npx` fetches each time, so both the deploy
+script and Cloudflare's own `npx wrangler deploy` resolve the same version.
+
+To deploy by hand, authorise once and then deploy:
+
+```bash
+npx wrangler login
+```
+
+```bash
+npm run deploy
+```
+
+That takes about fifteen seconds. The Git build does the same work but can spend
+several minutes queued before it starts, so a manual deploy is the quicker route
+when you want to see a change live. Pushing still redeploys on its own.
 
 ### The gyroscope on the deployed site
 

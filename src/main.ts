@@ -4,13 +4,26 @@ import { PostChain } from './post/composer';
 import { TiltSource } from './input/TiltSource';
 import { StartOverlay } from './ui/startOverlay';
 import { TiltDebugPanel } from './ui/tiltDebug';
+import { FullscreenToggle } from './ui/fullscreen';
 import { createGui } from './ui/gui';
 import { FrameStats } from './ui/stats';
 import { DEFAULT_PARAMS, type Params } from './params';
 import { QUALITY_TIERS, QualityProbe } from './quality';
 
-const SLAB = { width: 2.6, height: 1.9, depth: 0.42 };
-const VIEWPORT_FILL = 0.8; // slab covers this fraction of the viewport
+/**
+ * The slab takes its proportions from the viewport rather than being a fixed
+ * landscape block. A 2.6 by 1.9 slab on a portrait phone can only fill the
+ * width, which leaves most of the screen empty and the digits tiny.
+ *
+ * Surface area is held constant as the aspect changes, so the number of cells
+ * on screen stays in the same range whichever way the device is held.
+ */
+const SLAB_AREA = 2.6 * 1.9;
+const SLAB_DEPTH = 0.42;
+// A phone held upright is about 0.46; the bounds only exist to stop absurd
+// window shapes turning the slab into a sliver.
+const SLAB_MIN_ASPECT = 0.42;
+const SLAB_MAX_ASPECT = 2.4;
 
 const query = new URLSearchParams(location.search);
 /** Fixed tilt for deterministic screenshots, e.g. ?tilt=-0.6,0.3 */
@@ -85,11 +98,26 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(params.cameraFov, 1, 0.1, 100);
 
 const material = new ObsidianDigitsMaterial();
+let slabWidth = 2.6;
+let slabHeight = 1.9;
 const slab = new THREE.Mesh(
-  new THREE.BoxGeometry(SLAB.width, SLAB.height, SLAB.depth),
+  new THREE.BoxGeometry(slabWidth, slabHeight, SLAB_DEPTH),
   material,
 );
 scene.add(slab);
+
+/** Reshapes the slab to the viewport. Cheap, and only runs on resize. */
+function fitSlabToViewport(aspect: number): void {
+  const a = THREE.MathUtils.clamp(aspect, SLAB_MIN_ASPECT, SLAB_MAX_ASPECT);
+  const height = Math.sqrt(SLAB_AREA / a);
+  const width = height * a;
+  if (Math.abs(width - slabWidth) < 1e-3 && Math.abs(height - slabHeight) < 1e-3) return;
+
+  slabWidth = width;
+  slabHeight = height;
+  slab.geometry.dispose();
+  slab.geometry = new THREE.BoxGeometry(width, height, SLAB_DEPTH);
+}
 
 const post = new PostChain(renderer, scene, camera);
 
@@ -102,6 +130,7 @@ const tiltDebug = showTiltDebug ? new TiltDebugPanel(app, tiltSource) : null;
 if (!fixedTilt) {
   new StartOverlay(app, tiltSource, () => {});
 }
+const fullscreen = hideGui ? null : new FullscreenToggle(app);
 const pane = hideGui
   ? null
   : createGui(params, {
@@ -123,11 +152,16 @@ function resize(): void {
 
   camera.aspect = width / height;
   camera.fov = params.cameraFov;
-  // Pull the camera back until the slab covers VIEWPORT_FILL on both axes.
+  fitSlabToViewport(camera.aspect);
+
+  // Pull the camera back until the slab covers viewportFill on both axes. With
+  // the slab matching the viewport shape the two distances agree, so it fills
+  // the same fraction either way up.
+  const fill = THREE.MathUtils.clamp(params.viewportFill, 0.3, 1);
   const halfFov = THREE.MathUtils.degToRad(camera.fov) / 2;
-  const distForHeight = SLAB.height / VIEWPORT_FILL / (2 * Math.tan(halfFov));
-  const distForWidth = SLAB.width / VIEWPORT_FILL / (2 * Math.tan(halfFov) * camera.aspect);
-  camera.position.set(0, 0, Math.max(distForHeight, distForWidth) + SLAB.depth);
+  const distForHeight = slabHeight / fill / (2 * Math.tan(halfFov));
+  const distForWidth = slabWidth / fill / (2 * Math.tan(halfFov) * camera.aspect);
+  camera.position.set(0, 0, Math.max(distForHeight, distForWidth) + SLAB_DEPTH);
   camera.updateProjectionMatrix();
 
   post.setSize(width, height, currentPixelRatio());
@@ -186,6 +220,7 @@ if (import.meta.hot) {
     renderer.setAnimationLoop(null);
     tiltSource.dispose();
     tiltDebug?.dispose();
+    fullscreen?.dispose();
     post.dispose();
     pane?.dispose();
     renderer.dispose();

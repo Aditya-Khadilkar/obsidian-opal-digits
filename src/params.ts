@@ -82,6 +82,7 @@ export interface Params {
   // which is the condition the reference photograph was shot under. A wide one
   // swings the half-vector at the edges and sends those cells into the red.
   cameraFov: number;
+  viewportFill: number;
 
   // Diffraction, see PRD 5.4
   pitchMin: number;
@@ -175,6 +176,7 @@ export const DEFAULT_PARAMS: Params = {
   grainAmount: 0.015,
 
   cameraFov: 14,
+  viewportFill: 0.9,
 
   pitchMin: 817,
   pitchMax: 1323,

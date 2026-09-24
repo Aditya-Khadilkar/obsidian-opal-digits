@@ -189,6 +189,22 @@ per-cell hash than the digit, so a cell's colour stays put as its digit changes.
 The GUI also has a **view** dropdown for the debug render modes, and a
 **Settings JSON** folder that copies and pastes the whole parameter set.
 
+## Framing
+
+The slab takes its proportions from the viewport rather than being a fixed
+landscape block, and covers about 90% of it either way up. A fixed 2.6 by 1.9
+slab on a portrait phone can only fill the width, which leaves most of the
+screen empty and the digits too small to read. Surface area is held constant as
+the aspect changes, so the number of cells on screen stays in the same range
+whichever way the device is held. `viewportFill` in the GUI adjusts how much of
+the screen it takes.
+
+A fullscreen button sits in the bottom corner **where the browser supports it**.
+iPhone Safari has no Fullscreen API for ordinary elements, only for video, so
+the button is not rendered there at all rather than sitting inert. On iOS, Add to
+Home Screen is the route to a chromeless view, which the `apple-mobile-web-app`
+meta tags enable.
+
 ## Tilt
 
 `src/input/TiltSource.ts` owns every input path and exposes one smoothed tilt

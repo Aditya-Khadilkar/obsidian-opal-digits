@@ -77,6 +77,8 @@ export function createGui(params: Params, hooks: GuiHooks): Pane {
   const cam = pane.addFolder({ title: 'Camera' });
   cam.addBinding(params, 'cameraFov', { label: 'fov deg', min: 8, max: 60, step: 0.5 })
     .on('change', hooks.onCameraChange);
+  cam.addBinding(params, 'viewportFill', { label: 'viewport fill', min: 0.3, max: 1, step: 0.01 })
+    .on('change', hooks.onCameraChange);
 
   const depth = pane.addFolder({ title: 'Depth' });
   depth.addBinding(params, 'layers', { label: 'layers', min: 1, max: 8, step: 1 });

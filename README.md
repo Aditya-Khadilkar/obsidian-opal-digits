@@ -167,7 +167,7 @@ Other scripts:
 | `npm run dev:https` | Same, over TLS, for on-device testing |
 | `npm run build` | Typecheck, then production build into `dist/` |
 | `npm run typecheck` | Typecheck only |
-| `npm run shots` | Playwright screenshots into `screenshots/phase-N/` |
+| `npm run shots` | Playwright screenshots into `screenshots/phase-N/`, which is untracked |
 | `npm run deploy` | Build, then publish `dist/` to Cloudflare Pages |
 
 ## Debug flags
@@ -322,8 +322,8 @@ src/
     segments.glsl              seven-segment SDF + digit bitmasks
     main.vert / main.frag
 tests/screenshots.spec.ts      Playwright capture harness
-reference/                     reference imagery, see reference/README.md
-screenshots/phase-N/           captured output per phase
+reference/                     measurements taken from the photograph
+screenshots/phase-N/           captured output per phase, not committed
 ```
 
 ### Quality and presets

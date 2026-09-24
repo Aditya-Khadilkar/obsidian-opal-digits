@@ -30,3 +30,14 @@ blob-report
 
 # Cloudflare / wrangler
 .wrangler
+
+# Reference imagery. The source photograph is 4 MB and is the author's own; the
+# repo records what was measured from it instead. Drop it in locally to re-run
+# the analysis or the side-by-side comparisons.
+reference/*.png
+reference/*.jpg
+reference/*.jpeg
+
+# Captured screenshots. Build artifacts of the Playwright harness, several
+# megabytes each; regenerate with `npm run shots`.
+screenshots/**/*.png

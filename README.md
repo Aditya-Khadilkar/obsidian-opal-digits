@@ -263,15 +263,49 @@ from `vite.config.ts` in development.
 
 ## Deploying to Cloudflare Pages
 
-`wrangler.toml` sets `pages_build_output_dir = "dist"`, so a direct upload is:
+The repo is at
+[Aditya-Khadilkar/obsidian-opal-digits](https://github.com/Aditya-Khadilkar/obsidian-opal-digits).
+Connect it once in the dashboard and every push to `main` redeploys.
+
+At **dash.cloudflare.com → Workers & Pages → Create → Pages → Connect to Git**,
+pick the repo and set:
+
+| Setting | Value |
+| --- | --- |
+| Framework preset | None |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Root directory | leave empty |
+
+Nothing else is needed. `.node-version` pins Node to 22.16, which Vite 7
+requires, and `public/_headers` is copied into `dist` by the build, so the
+sensor permissions policy and the asset caching rules ship with the site.
+
+To upload a build straight from here instead, authorise once and deploy:
 
 ```bash
-npx wrangler pages deploy dist
+npx wrangler login
 ```
 
-For a Git-connected project, set the build command to `npm run build` and the
-output directory to `dist`. `public/_headers` ships the sensor permissions
-policy and long-lived caching for hashed assets.
+```bash
+npm run deploy
+```
+
+### The gyroscope on the deployed site
+
+Pages serves over HTTPS, which is the hard requirement for orientation events,
+so the sensor works once the site is live.
+
+- **iOS**, 13 and later: tapping **Tap to explore** raises the system prompt
+  asking to allow motion and orientation access. Allow it and the gyro drives
+  the tilt. Refuse it and a toast says so, and drag keeps working.
+- **Android Chrome**: no prompt. The button still appears and tapping it starts
+  the sensor immediately.
+- **Desktop**: no button at all. The pointer drives the tilt, and the material
+  drifts on its own when left alone.
+
+Add `?debugTilt=1` to watch the raw angles and the captured neutral pose while
+testing on a real device.
 
 ## Layout
 
